@@ -6,6 +6,11 @@ const IRDS=[['ok','ใช้ได้'],['broken','ชำรุด'],['none','�
 const CAB=[['ok','มี'],['broken','ชำรุด'],['none','ไม่มี']];
 const DISH=[['ok','ใช้ได้ปกติ'],['weak','สัญญาณไม่ดี'],['broken','ชำรุดใช้ไม่ได้'],['none','ไม่มี']];
 const PCC=[['ok','ใช้ได้'],['slow','ช้ามาก'],['broken','ชำรุด']];
+const SPECIAL=[['no','ไม่ใช่'],['highland','พื้นที่สูง/ภูเขา'],['border','พื้นที่ชายแดน'],['island','พื้นที่เกาะ'],['remote','พื้นที่ห่างไกลทุรกันดาร'],['south','จังหวัดชายแดนภาคใต้'],['other','พื้นที่พิเศษอื่น ๆ']];
+const SIZES=[['s','ขนาดเล็ก (ไม่เกิน 120 คน)'],['m','ขนาดกลาง (121–600 คน)'],['l','ขนาดใหญ่ (601–1,499 คน)'],['xl','ขนาดใหญ่พิเศษ (1,500 คนขึ้นไป)']];
+const TYPES=[['primary','ประถมศึกษา'],['ext','ขยายโอกาสทางการศึกษา'],['secondary','มัธยมศึกษา'],['bpp','โรงเรียนตำรวจตระเวนชายแดน'],['branch','สาขา/ศูนย์การเรียน'],['other','อื่น ๆ']];
+const MERGE=[['none','ไม่มีแผน'],['merge','มีแผนควบรวมกับโรงเรียนอื่น'],['close','มีแผนยุบ / เลิกสถานศึกษา'],['considering','อยู่ระหว่างพิจารณา']];
+const sizeFor=n=>!n?'':n<=120?'s':n<=600?'m':n<1500?'l':'xl';
 const STEPS=[
  ['s1','ข้อมูลพื้นฐาน','ข้อมูลโรงเรียนและผู้ประสานงาน'],
  ['s2','การใช้ DLTV','สถานะ รูปแบบตารางสอน และช่องทางรับชม'],
@@ -17,7 +22,7 @@ const STEPS=[
  ['s8','ประวัติและความต้องการ','อุปกรณ์ที่เคยได้รับและที่ต้องการ'],
  ['s9','ตรวจทานและรับรอง','ตรวจความครบถ้วนและรับรองข้อมูล']];
 let cfg=JSON.parse(JSON.stringify(DEF)),S=blank(),cur='s1',dirty=false,saving=false,tried={},verifyTel='';
-function blank(){return{v:1,status:'draft',coord:[{},{}],grades:G.map(()=>({open:false})),subj:{},rooms:[{}],buildings:[{}],pcs:[],history:[],circuits:[],channels:[],elecSrc:[],pcUse:[],req:{},cert:{}}}
+function blank(){return{v:1,status:'draft',special:'no',coord:[{},{}],grades:G.map(()=>({open:false})),subj:{},rooms:[{}],buildings:[{}],pcs:[],history:[],circuits:[],channels:[],elecSrc:[],pcUse:[],req:{},cert:{}}}
 function getP(o,k){return k.split('.').reduce((a,s)=>a==null?a:a[s],o)}
 function setP(o,k,v){const p=k.split('.');let a=o;p.slice(0,-1).forEach((s,i)=>{if(a[s]==null)a[s]=/^\d+$/.test(p[i+1])?[]:{};a=a[s]});a[p[p.length-1]]=v}
 const opt=(arr,b='— เลือก —')=>`<option value="">${b}</option>`+arr.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
@@ -25,6 +30,7 @@ const inp=(k,l,o={})=>`<label class="f ${o.w||''}"><span>${l}${o.req?' <b class=
 const rad=(k,l,arr,req)=>`<fieldset class="f wide" data-f="${k}"><legend>${l}${req?' <b class="req">*</b>':''}</legend><div class="opts">${arr.map(([v,t])=>`<label class="opt"><input type="radio" name="${k}" data-k="${k}" value="${v}">${t}</label>`).join('')}</div></fieldset>`;
 const chk=(k,l,arr)=>`<fieldset class="f wide"><legend>${l}</legend><div class="opts">${arr.map(([v,t])=>`<label class="opt"><input type="checkbox" data-k="${k}" data-multi value="${v}">${t}</label>`).join('')}</div></fieldset>`;
 const sel=(k,arr)=>`<select data-k="${k}">${opt(arr,'—')}</select>`;
+const selF=(k,l,arr,req,noBlank)=>`<label class="f"><span>${l}${req?' <b class="req">*</b>':''}</span><select data-k="${k}">${noBlank?arr.map(([v,t])=>`<option value="${v}">${t}</option>`).join(''):opt(arr)}</select></label>`;
 const DYN={
  circuits:[['type','ประเภท (Fiber, ADSL, ดาวเทียม, 4G/5G)'],['isp','ผู้ให้บริการ'],['down','Download (Mbps)','n'],['up','Upload (Mbps)','n']],
  rooms:[['bld','อาคารที่','n'],['grades','ชั้นที่เรียนในห้อง'],['students','นักเรียน','n'],['tv','ทีวี: สภาพ',TVS],['size','ขนาด (นิ้ว)','n'],['year','ปีที่ได้รับ (พ.ศ.)','n'],['stand','ขาตั้ง/ขาแขวน',STS],['ird','กล่อง IRD',IRDS],['cable','สายสัญญาณจากจาน',CAB]],
@@ -44,9 +50,14 @@ function sectionsHTML(){
  const mtx=(lbl,from,to,list)=>`<h3 style="margin-top:18px">${lbl}</h3><div class="scroll"><table class="tbl mtx"><thead><tr><th>ชั้น</th>${list.map(s=>`<th>${s}</th>`).join('')}</tr></thead><tbody>${G.slice(from,to).map((g,j)=>`<tr><td>${g}</td>${list.map((s,si)=>`<td>${sel(`subj.${from+j}.${si}`,[['✓','✓'],['◐','◐'],['✗','✗']])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
  return`
  <section class="step card" data-step="s1">${head('s1')}
-  <div class="grid">${inp('code','รหัสโรงเรียน (10 หลัก)',{req:1,ph:'เช่น 1010720001',im:'numeric'})}${inp('name','ชื่อโรงเรียน',{req:1})}${inp('tambon','ตำบล')}${inp('amphoe','อำเภอ')}${inp('province','จังหวัด',{req:1})}${inp('zip','รหัสไปรษณีย์',{im:'numeric'})}${inp('phone','โทรศัพท์โรงเรียน',{t:'tel'})}${inp('lat','ละติจูด',{im:'decimal'})}${inp('lng','ลองจิจูด',{im:'decimal'})}${inp('students','นักเรียนทั้งหมด (คน)',{t:'number'})}</div>
+  <div class="grid">${inp('code','รหัสโรงเรียน (10 หลัก)',{req:1,ph:'เช่น 1010720001',im:'numeric'})}${inp('name','ชื่อโรงเรียน',{req:1})}${inp('tambon','ตำบล')}${inp('amphoe','อำเภอ')}${inp('province','จังหวัด',{req:1})}${inp('zip','รหัสไปรษณีย์',{im:'numeric'})}${inp('phone','โทรศัพท์โรงเรียน',{t:'tel'})}${inp('lat','ละติจูด',{im:'decimal'})}${inp('lng','ลองจิจูด',{im:'decimal'})}</div>
   ${rad('affil','สังกัด',[['obec','สพฐ.'],['bpp','ตชด.'],['lao','อปท.'],['private','เอกชน'],['other','อื่น ๆ']],1)}
+  <div class="grid">${inp('parent','ต้นสังกัด',{req:1,w:'wide',ph:'เช่น สพป.น่าน เขต 1 / สพม.ตาก / กก.ตชด.34 / อบต.…'})}</div>
   ${chk('levels','ระดับที่เปิดสอน',[['k','อนุบาล'],['p','ประถมศึกษา'],['m','มัธยมศึกษาตอนต้น']])}
+  <div class="grid">${inp('students','จำนวนนักเรียนทั้งหมด (คน)',{t:'number',req:1})}${inp('teachers','จำนวนครู (คน)',{t:'number',req:1})}${selF('special','พื้นที่พิเศษ',SPECIAL,0,1)}</div>
+  <div class="grid">${selF('size','ขนาดโรงเรียน',SIZES,1)}${selF('stype','ประเภทโรงเรียน',TYPES,1)}</div>
+  ${rad('merge','โรงเรียนมีแผนยุบหรือควบรวมกับโรงเรียนอื่นหรือไม่',MERGE,1)}
+  <div class="panel warn small hide" id="mergeNote">โรงเรียนที่มีแผนยุบหรือเลิกสถานศึกษาจะไม่ได้รับการจัดสรรอุปกรณ์ในรอบนี้ ส่วนโรงเรียนที่มีแผนควบรวมหรืออยู่ระหว่างพิจารณา มูลนิธิฯ จะตรวจสอบก่อนจัดสรร</div>
   <h3 class="sub">ผู้ประสานงาน</h3>
   <p class="muted small">เบอร์มือถือของผู้ประสานงานคนที่ 1 ใช้ยืนยันตัวตนเมื่อกลับมาแก้ไขข้อมูล</p>
   ${[0,1].map(i=>`<div class="grid">${inp(`coord.${i}.name`,`คนที่ ${i+1} ชื่อ–นามสกุล`,{req:!i})}${inp(`coord.${i}.pos`,'ตำแหน่ง')}${inp(`coord.${i}.tel`,'มือถือ',{t:'tel',req:!i})}${inp(`coord.${i}.email`,'อีเมล',{t:'email'})}${inp(`coord.${i}.line`,'LINE ID')}</div>`).join('')}
@@ -77,7 +88,7 @@ function sectionsHTML(){
   <h3 class="sub">3.4 บุคลากร</h3>
   ${rad('director','ผู้บริหารสถานศึกษา',[['yes','มี'],['acting','ไม่มี (มีผู้รักษาการ)']],1)}
   ${rad('itTeacher','ครูผู้ดูแลระบบ IT/DLTV',[['yes','มี'],['no','ไม่มี']])}
-  <div class="grid">${inp('teachers','ครูผู้สอนทั้งหมด (คน)',{t:'number',req:1})}${inp('dltvTeachers','ครูที่ใช้ DLTV (คน)',{t:'number'})}</div>
+  <div class="grid">${inp('dltvTeachers','ครูที่ใช้ DLTV (คน)',{t:'number'})}</div>
  </section>
  <section class="step card" data-step="s4">${head('s4')}
   <div class="panel small">ติ๊กชั้นที่เปิดสอน แล้วกรอกจำนวนคาบที่ใช้ DLTV จริงต่อสัปดาห์ (B) ไม่เกินคาบที่ออกอากาศ (A) นับทั้งการรับชมสดและย้อนหลัง</div>
@@ -125,6 +136,7 @@ function fill(root){root.querySelectorAll('[data-k]').forEach(el=>{const v=getP(
 function onEdit(e){const el=e.target,k=el.dataset&&el.dataset.k;if(!k)return;if(e.type==='input'&&(el.type==='radio'||el.type==='checkbox'||el.tagName==='SELECT'))return;
  if(el.type==='radio')setP(S,k,el.value);else if(el.type==='checkbox'){if(el.hasAttribute('data-multi')){const a=new Set(getP(S,k)||[]);el.checked?a.add(el.value):a.delete(el.value);setP(S,k,[...a])}else setP(S,k,el.checked)}
  else if(el.type==='number')setP(S,k,el.value===''?'':Number(el.value));else setP(S,k,el.value);
+ if(k==='size')S.sizeManual=true;if(k==='students'&&!S.sizeManual){S.size=sizeFor(num(S.students));const se=document.querySelector('[data-k=size]');if(se)se.value=S.size}
  el.classList.remove('invalid');el.closest('.invalid')?.classList.remove('invalid');
  if(!dirty){dirty=true;status('มีการแก้ไขที่ยังไม่บันทึก','warn')}refresh();if(k==='use'){if(!visible().includes(cur))cur='s2';renderRail()}}
 $('#sv').addEventListener('input',onEdit);$('#sv').addEventListener('change',onEdit);
@@ -138,7 +150,7 @@ function refresh(){
  G.forEach((g,i)=>{const r=S.grades[i]||{},c=document.getElementById('pc'+i);if(!c)return;const A=num(cfg.A[i]);c.textContent=r.open&&A?fmt(Math.min(num(r.B),A)/A*100,2):'–';c.closest('tr').classList.toggle('off',!r.open)});
  if($('#sumA')){$('#sumA').textContent=fmt(t.sA);$('#sumB').textContent=fmt(t.sB);$('#sumSt').textContent=fmt(t.sSt);$('#sumP').textContent=t.sA?fmt(t.p,2):'–'}
  const r=evalSchool(S,cfg);EQ.forEach(([k])=>{const el=$('#gap-'+k);if(el)el.textContent=fmt(r.gap[k])});
- $('#useB')?.classList.toggle('hide',S.use!=='b');$('#useC')?.classList.toggle('hide',S.use!=='c');$('#s2more')?.classList.toggle('hide',S.use==='c');
+ $('#useB')?.classList.toggle('hide',S.use!=='b');$('#useC')?.classList.toggle('hide',S.use!=='c');$('#s2more')?.classList.toggle('hide',S.use==='c');$('#mergeNote')?.classList.toggle('hide',!S.merge||S.merge==='none');
  const cb=$('#certBox'),slot=$(S.use==='c'?'#certSlot2':'#certSlot9');if(cb&&slot&&cb.parentNode!==slot)slot.append(cb);
  $('#netBox')?.classList.toggle('hide',S.net==='none');$('#histBox')?.classList.toggle('hide',!!S.neverReceived);
  // ring
@@ -155,10 +167,11 @@ function refresh(){
 /* ---------- validation ---------- */
 function issues(){const m=[];const q=(c,sec,t,k)=>{if(!c)m.push({sec,t,k})};
  q(/^\d{10}$/.test(String(S.code||'')),'s1','รหัสโรงเรียน 10 หลัก','code');q(S.name,'s1','ชื่อโรงเรียน','name');q(S.province,'s1','จังหวัด','province');q(S.affil,'s1','สังกัด','affil');
+ q(S.parent,'s1','ต้นสังกัด','parent');q(num(S.students)>0,'s1','จำนวนนักเรียนทั้งหมด','students');q(S.teachers!==''&&S.teachers!=null,'s1','จำนวนครู','teachers');q(S.size,'s1','ขนาดโรงเรียน','size');q(S.stype,'s1','ประเภทโรงเรียน','stype');q(S.merge,'s1','แผนยุบ/ควบรวม','merge');
  q(S.coord?.[0]?.name,'s1','ชื่อผู้ประสานงานคนที่ 1','coord.0.name');q(String(S.coord?.[0]?.tel||'').replace(/\D/g,'').length>=9,'s1','มือถือผู้ประสานงานคนที่ 1','coord.0.tel');
  q(S.use,'s2','สถานะการใช้ DLTV (2.1)','use');
  if(S.use&&S.use!=='c'){q(S.sched,'s2','รูปแบบตารางสอน (2.3)','sched');
-  q(S.road,'s3','พื้นผิวถนน','road');q(S.vehicle,'s3','พาหนะที่เข้าถึงได้','vehicle');q(S.elec,'s3','สถานะไฟฟ้า','elec');q(S.net,'s3','อินเทอร์เน็ต','net');q(S.director,'s3','ผู้บริหารสถานศึกษา','director');q(S.teachers!==''&&S.teachers!=null,'s3','จำนวนครูผู้สอน','teachers');
+  q(S.road,'s3','พื้นผิวถนน','road');q(S.vehicle,'s3','พาหนะที่เข้าถึงได้','vehicle');q(S.elec,'s3','สถานะไฟฟ้า','elec');q(S.net,'s3','อินเทอร์เน็ต','net');q(S.director,'s3','ผู้บริหารสถานศึกษา','director');
   const og=S.grades.map((g,i)=>[g,i]).filter(([g])=>g.open);q(og.length,'s4','ติ๊กชั้นที่เปิดสอนอย่างน้อย 1 ชั้น','grades.0.open');
   og.forEach(([g,i])=>{q(g.B!==''&&g.B!=null,'s4',`คาบที่ใช้จริง (B) ชั้น ${G[i]}`,`grades.${i}.B`);q(g.students,'s4',`จำนวนนักเรียนชั้น ${G[i]}`,`grades.${i}.students`)});
   q(S.timetableLink,'s4','ลิงก์ตารางสอน (4.3)','timetableLink');

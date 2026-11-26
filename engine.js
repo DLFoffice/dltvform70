@@ -26,7 +26,7 @@ function evalSchool(s,c){
  const fRoom=rooms.length?miss.length/rooms.length:0;
  const ages=rooms.filter(r=>r.tv&&r.tv!=='none'&&num(r.year)>2400).map(r=>ref-num(r.year));const age=ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:null;
  const fAge=age==null?0:age>=10?1:age>=7?2/3:age>=4?1/3:0;
- const fAcc=Math.max(s.vehicle==='moto'||s.vehicle==='boat'?1:0,s.vehicle==='4wd'?2/3:0,s.road==='laterite'||s.road==='dirt'?1/3:0);
+ const fAcc=Math.max(s.vehicle==='moto'||s.vehicle==='boat'?1:0,s.vehicle==='4wd'||(s.special&&s.special!=='no')?2/3:0,s.road==='laterite'||s.road==='dirt'?1/3:0);
  const fNet=s.net==='none'?1:(s.netQual==='some'||s.netQual==='no')?.5:0;
  const hy=(s.history||[]).map(h=>num(h.year)).filter(y=>y>2400),last=hy.length?Math.max(...hy):null;
  const fHist=s.neverReceived||last==null?1:ref-last>3?.5:0;
@@ -45,6 +45,7 @@ function evalSchool(s,c){
  if(!(s.cert?.agree&&s.cert?.director))why.push('ผู้อำนวยการยังไม่รับรอง');
  if(s.use!=='c'&&!group)why.push(`ใช้ DLTV ต่ำกว่า ${bd[4]}%`);
  if(s.use!=='c'&&!Object.values(need).some(v=>v>0))why.push('ไม่ขาดอุปกรณ์');
+ if(s.merge==='close'&&s.use!=='c')why.push('มีแผนยุบ/เลิกสถานศึกษา');if(s.merge==='merge')flags.push('มีแผนควบรวมกับโรงเรียนอื่น');if(s.merge==='considering')flags.push('อยู่ระหว่างพิจารณายุบ/ควบรวม');
  if(s.use==='b')flags.push('หยุดใช้เพราะอุปกรณ์ชำรุด ต้องตรวจสอบ');
  if(s.use!=='c'&&!s.timetableLink)flags.push('ไม่มีลิงก์ตารางสอน');
  if(miss.length&&!s.evidence)flags.push('ไม่มีรูปหลักฐานอุปกรณ์ชำรุด');

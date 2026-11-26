@@ -2,9 +2,11 @@
 {
 const AF={obec:'สพฐ.',bpp:'ตชด.',lao:'อปท.',private:'เอกชน',other:'อื่น ๆ'};
 const USE={a:'ใช้',b:'หยุดใช้ (อุปกรณ์ชำรุด)',c:'ไม่ใช้'};
+const SIZE={s:'ขนาดเล็ก',m:'ขนาดกลาง',l:'ขนาดใหญ่',xl:'ขนาดใหญ่พิเศษ'},STYPE={primary:'ประถมศึกษา',ext:'ขยายโอกาส',secondary:'มัธยมศึกษา',bpp:'โรงเรียน ตชด.',branch:'สาขา/ศูนย์การเรียน',other:'อื่น ๆ'};
+const SPEC={no:'ไม่ใช่',highland:'พื้นที่สูง/ภูเขา',border:'พื้นที่ชายแดน',island:'พื้นที่เกาะ',remote:'ห่างไกลทุรกันดาร',south:'จังหวัดชายแดนภาคใต้',other:'พื้นที่พิเศษอื่น ๆ'},MERGE={none:'ไม่มีแผน',merge:'มีแผนควบรวม',close:'มีแผนยุบ/เลิก',considering:'อยู่ระหว่างพิจารณา'};
 const PARTS=[['room','ห้องที่ขาดอุปกรณ์'],['age','อายุทีวีเฉลี่ย'],['access','ความห่างไกล'],['net','อินเทอร์เน็ต'],['hist','ประวัติการได้รับ'],['teach','ครูไม่ครบชั้น']];
 const LIB={xlsx:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'};
-let token=null,D=null,F={q:'',pv:'',af:'',g:'',st:''},sortK='rank',sortD=1,page=0;const PER=25;
+let token=null,D=null,F={q:'',pv:'',pa:'',af:'',g:'',st:''},sortK='rank',sortD=1,page=0;const PER=25;
 try{token=sessionStorage.getItem('dltv_admin')}catch{}
 
 /* ---------- login ---------- */
@@ -21,16 +23,17 @@ function busy(on,t){let b=$('.busy');if(on){if(!b){b=document.createElement('div
 async function load(){busy(true,'กำลังคำนวณข้อมูลล่าสุด…');
  try{D=await api('adminData',token);const pvs=[...new Set(D.rows.map(r=>r.province||'ไม่ระบุ'))].sort((a,b)=>a.localeCompare(b,'th'));
   $('#fPv').innerHTML='<option value="">ทุกจังหวัด</option>'+pvs.map(p=>`<option>${esc(p)}</option>`).join('');$('#fPv').value=F.pv;
+  const pas=[...new Set(D.rows.map(r=>r.parent||'ไม่ระบุ'))].sort((a,b)=>a.localeCompare(b,'th'));$('#fPa').innerHTML='<option value="">ทุกต้นสังกัด</option>'+pas.map(p=>`<option>${esc(p)}</option>`).join('');$('#fPa').value=F.pa;
   $('#asof').textContent=`ข้อมูล ณ ${new Date(D.generatedAt).toLocaleString('th-TH',{dateStyle:'long',timeStyle:'short'})} · แบบสำรวจทั้งหมด ${fmt(D.rows.length)} ฉบับ`;render()}
  catch(e){if(e.auth)leave('หมดเวลาการใช้งาน กรุณาเข้าสู่ระบบใหม่');else{$('#headline').textContent='โหลดข้อมูลไม่สำเร็จ';toast(e.message||String(e),'bad')}}
  finally{busy(false)}}
 $('#refresh').onclick=load;
 const bind=(id,k)=>$(id).addEventListener('input',e=>{F[k]=e.target.value;page=0;render()});
-bind('#fQ','q');bind('#fPv','pv');bind('#fAf','af');bind('#fG','g');bind('#fSt','st');
-$('#fClear').onclick=()=>{F={q:'',pv:'',af:'',g:'',st:''};['#fQ','#fPv','#fAf','#fG','#fSt'].forEach(s=>$(s).value='');page=0;render()};
-function rows(){const q=F.q.trim();return D.rows.filter(r=>(!F.pv||(r.province||'ไม่ระบุ')===F.pv)&&(!F.af||r.affil===F.af)&&(F.g===''||String(r.group||0)===F.g)
+bind('#fQ','q');bind('#fPv','pv');bind('#fPa','pa');bind('#fAf','af');bind('#fG','g');bind('#fSt','st');
+$('#fClear').onclick=()=>{F={q:'',pv:'',pa:'',af:'',g:'',st:''};['#fQ','#fPv','#fPa','#fAf','#fG','#fSt'].forEach(s=>$(s).value='');page=0;render()};
+function rows(){const q=F.q.trim();return D.rows.filter(r=>(!F.pv||(r.province||'ไม่ระบุ')===F.pv)&&(!F.pa||(r.parent||'ไม่ระบุ')===F.pa)&&(!F.af||r.affil===F.af)&&(F.g===''||String(r.group||0)===F.g)
  &&(!F.st||(F.st==='el'?r.eligible:F.st==='no'?!r.eligible:F.st==='flag'?r.flags.length>0:r.status!=='submitted'))&&(!q||String(r.name).includes(q)||String(r.code).includes(q)))}
-function scope(){const p=[];if(F.pv)p.push('จังหวัด'+F.pv);if(F.af)p.push('สังกัด '+AF[F.af]);if(F.g!=='')p.push(F.g==='0'?'ต่ำกว่าเกณฑ์':'กลุ่ม '+F.g);if(F.st)p.push({el:'ผ่านเกณฑ์',no:'ไม่ผ่านเกณฑ์',flag:'ต้องตรวจสอบ',draft:'ฉบับร่าง'}[F.st]);if(F.q)p.push(`ค้นหา "${F.q}"`);return p.length?p.join(' · '):'ทั้งหมด'}
+function scope(){const p=[];if(F.pv)p.push('จังหวัด'+F.pv);if(F.pa)p.push(F.pa);if(F.af)p.push('สังกัด '+AF[F.af]);if(F.g!=='')p.push(F.g==='0'?'ต่ำกว่าเกณฑ์':'กลุ่ม '+F.g);if(F.st)p.push({el:'ผ่านเกณฑ์',no:'ไม่ผ่านเกณฑ์',flag:'ต้องตรวจสอบ',draft:'ฉบับร่าง'}[F.st]);if(F.q)p.push(`ค้นหา "${F.q}"`);return p.length?p.join(' · '):'ทั้งหมด'}
 function stats(L){const sub=L.filter(r=>r.status==='submitted'),el=L.filter(r=>r.eligible);const sum=k=>el.reduce((a,r)=>a+r.need[k],0),got=k=>el.reduce((a,r)=>a+(r.alloc?r.alloc[k]:0),0);
  const why={};L.filter(r=>!r.eligible).forEach(r=>r.why.forEach(w=>why[w]=(why[w]||0)+1));
  const pv={};L.forEach(r=>{const p=r.province||'ไม่ระบุ';const o=pv[p]=pv[p]||{n:0,sub:0,el:0,ps:0,tv:0,stand:0,dish:0,nb:0};o.n++;if(r.status==='submitted'){o.sub++;o.ps+=r.pct}if(r.eligible){o.el++;EQ.forEach(([k])=>o[k]+=r.alloc?r.alloc[k]:0)}});
@@ -70,13 +73,13 @@ $('#ledger').addEventListener('keydown',e=>{if(e.key!=='Enter')return;const t=e.
 function detail(code){const r=D.rows.find(x=>String(x.code)===code);if(!r)return;const w=D.cfg.w;
  const d=document.createElement('div');d.className='drawer';d.setAttribute('role','dialog');d.setAttribute('aria-modal','true');
  const link=(u,t)=>u&&/^https:\/\//.test(u)?`<a href="${esc(u)}" target="_blank" rel="noopener">${t}</a>`:'';
- d.innerHTML=`<div class="pane"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><h2>${esc(r.name||'(ไม่มีชื่อ)')}</h2><p class="muted small">${esc(r.code)} · ${esc([r.amphoe,r.province].filter(Boolean).join(', '))} · ${esc(AF[r.affil]||'')}</p></div><button class="btn sm" type="button" data-x>ปิด</button></div>
+ d.innerHTML=`<div class="pane"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div><h2>${esc(r.name||'(ไม่มีชื่อ)')}</h2><p class="muted small">${esc(r.code)} · ${esc([r.amphoe,r.province].filter(Boolean).join(', '))} · ${esc(AF[r.affil]||'')}${r.parent?' · '+esc(r.parent):''}</p></div><button class="btn sm" type="button" data-x>ปิด</button></div>
  <div class="chips">${r.status==='submitted'?'<span class="chip ok">ส่งแล้ว</span>':'<span class="chip">ฉบับร่าง</span>'}<span class="chip">${esc(USE[r.use]||'–')}</span>${r.group?`<span class="chip ${r.group===1?'gold':''}">กลุ่ม ${r.group}</span>`:''}${r.rank?`<span class="chip">ลำดับ ${fmt(r.rank)}</span>`:''}</div>
  <div class="kpis" style="grid-template-columns:repeat(3,1fr)"><div class="kpi"><span>% การใช้</span><b>${fmt(r.pct,2)}</b></div><div class="kpi gold"><span>คะแนนความจำเป็น</span><b>${fmt(r.score,1)}</b></div><div class="kpi ok"><span>ห้องเรียน</span><b>${fmt(r.rooms)}</b></div></div>
  <h3>คะแนนความจำเป็น</h3><div class="parts">${PARTS.map(([k,l])=>`<div class="hb"><span>${l}</span><div class="t"><i data-w="${w[k]?r.parts[k]/w[k]*100:0}"></i></div><span class="v">${fmt(r.parts[k],1)}/${w[k]}</span></div>`).join('')}</div>
  <h3 style="margin-top:16px">อุปกรณ์</h3><table><thead><tr><th>อุปกรณ์</th><th class="n">ขาด</th><th class="n">ขอ</th><th class="n">ได้รับ</th></tr></thead><tbody>${EQ.map(([k,l])=>`<tr><td>${l}</td><td class="n">${fmt(r.gap[k])}</td><td class="n">${fmt(r.need[k])}</td><td class="n"><b>${r.eligible&&r.alloc?fmt(r.alloc[k]):'–'}</b></td></tr>`).join('')}</tbody></table>
  ${r.why.length||r.flags.length?`<div class="panel warn">${r.why.map(x=>`<div>• ${esc(x)}</div>`).join('')}${r.flags.map(x=>`<div>⚑ ${esc(x)}</div>`).join('')}</div>`:''}
- <p class="small">ผู้ประสานงาน: ${esc(r.coord||'–')} ${r.tel?'· โทร '+esc(r.tel):''}<br>ครู ${esc(r.teachers??'–')} คน · เปิดสอน ${fmt(r.open)} ชั้น · ใช้ DLTV ${esc(r.years??'–')} ปี · นักเรียนในห้องที่ขาดอุปกรณ์ ${fmt(r.affected)} คน<br>${[link(r.timetableLink,'ตารางสอน'),link(r.evidence,'รูปหลักฐาน')].filter(Boolean).join(' · ')}</p></div>`;
+ <p class="small">${[SIZE[r.size],STYPE[r.stype],r.special&&r.special!=='no'?SPEC[r.special]:'',r.merge&&r.merge!=='none'?MERGE[r.merge]:''].filter(Boolean).map(x=>`<span class="chip">${esc(x)}</span>`).join(' ')}</p><p class="small">นักเรียน ${fmt(r.students)} คน · ผู้ประสานงาน: ${esc(r.coord||'–')} ${r.tel?'· โทร '+esc(r.tel):''}<br>ครู ${esc(r.teachers??'–')} คน · เปิดสอน ${fmt(r.open)} ชั้น · ใช้ DLTV ${esc(r.years??'–')} ปี · นักเรียนในห้องที่ขาดอุปกรณ์ ${fmt(r.affected)} คน<br>${[link(r.timetableLink,'ตารางสอน'),link(r.evidence,'รูปหลักฐาน')].filter(Boolean).join(' · ')}</p></div>`;
  const close=()=>{d.remove();document.removeEventListener('keydown',esc_)},esc_=e=>{if(e.key==='Escape')close()};
  d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-x]'))close()});document.addEventListener('keydown',esc_);document.body.append(d);grow(d);d.querySelector('[data-x]').focus()}
 
@@ -92,8 +95,8 @@ $('#xlsx').onclick=async()=>{if(!D)return;const b=$('#xlsx');btnBusy(b,true,'ก
    ['อุปกรณ์','ต้องการ','จัดสรรได้','งบ (ทั้งหมด)'],...EQ.map(([k,l])=>[l,s.need[k],s.got[k],D.cfg.stock[k]===''?'ยังไม่กำหนด':D.cfg.stock[k]]),[],
    ['เหตุผลที่ไม่ผ่านคุณสมบัติ','โรงเรียน'],...Object.entries(s.why).sort((a,b)=>b[1]-a[1])];
   const ws1=X.utils.aoa_to_sheet(sum);ws1['!cols']=[{wch:38},{wch:22},{wch:14},{wch:16}];X.utils.book_append_sheet(wb,ws1,'สรุป');
-  const h=['ลำดับ','รหัสโรงเรียน','โรงเรียน','อำเภอ','จังหวัด','สังกัด','สถานะ','การใช้ DLTV','% การใช้','กลุ่ม','คะแนนความจำเป็น',...PARTS.map(([,l])=>'คะแนน: '+l),...EQ.flatMap(([,l])=>[l+' ขาด',l+' ขอ',l+' ได้รับ']),'ผ่านเกณฑ์','เหตุผลที่ไม่ผ่าน','ต้องตรวจสอบ','ผู้ประสานงาน','โทร'];
-  const ws2=X.utils.aoa_to_sheet([h,...L.map(r=>[r.rank??'',String(r.code),r.name,r.amphoe,r.province,AF[r.affil]||'',r.status==='submitted'?'ส่งแล้ว':'ฉบับร่าง',USE[r.use]||'',r.pct,r.group||'',r.score,...PARTS.map(([k])=>r.parts[k]),...EQ.flatMap(([k])=>[r.gap[k],r.need[k],r.eligible&&r.alloc?r.alloc[k]:0]),r.eligible?'ผ่าน':'ไม่ผ่าน',r.why.join('; '),r.flags.join('; '),r.coord,r.tel])]);
+  const h=['ลำดับ','รหัสโรงเรียน','โรงเรียน','อำเภอ','จังหวัด','สังกัด','ต้นสังกัด','ขนาดโรงเรียน','ประเภทโรงเรียน','พื้นที่พิเศษ','แผนยุบ/ควบรวม','นักเรียน','ครู','สถานะ','การใช้ DLTV','% การใช้','กลุ่ม','คะแนนความจำเป็น',...PARTS.map(([,l])=>'คะแนน: '+l),...EQ.flatMap(([,l])=>[l+' ขาด',l+' ขอ',l+' ได้รับ']),'ผ่านเกณฑ์','เหตุผลที่ไม่ผ่าน','ต้องตรวจสอบ','ผู้ประสานงาน','โทร'];
+  const ws2=X.utils.aoa_to_sheet([h,...L.map(r=>[r.rank??'',String(r.code),r.name,r.amphoe,r.province,AF[r.affil]||'',r.parent||'',SIZE[r.size]||'',STYPE[r.stype]||'',SPEC[r.special]||'',MERGE[r.merge]||'',r.students??'',r.teachers??'',r.status==='submitted'?'ส่งแล้ว':'ฉบับร่าง',USE[r.use]||'',r.pct,r.group||'',r.score,...PARTS.map(([k])=>r.parts[k]),...EQ.flatMap(([k])=>[r.gap[k],r.need[k],r.eligible&&r.alloc?r.alloc[k]:0]),r.eligible?'ผ่าน':'ไม่ผ่าน',r.why.join('; '),r.flags.join('; '),r.coord,r.tel])]);
   ws2['!cols']=h.map((x,i)=>({wch:i===2?34:i===1?14:Math.max(8,Math.min(24,x.length+2))}));ws2['!autofilter']={ref:`A1:${X.utils.encode_col(h.length-1)}1`};X.utils.book_append_sheet(wb,ws2,'ผลการจัดสรร');
   const ph=['จังหวัด','แบบสำรวจ','ส่งแล้ว','% เฉลี่ย','ผ่านเกณฑ์',...EQ.map(([,l])=>l+' ที่ได้รับ')];
   const ws3=X.utils.aoa_to_sheet([ph,...Object.entries(s.pv).sort((a,b)=>b[1].el-a[1].el).map(([p,o])=>[p,o.n,o.sub,o.sub?+(o.ps/o.sub).toFixed(2):'',o.el,...EQ.map(([k])=>o[k])])]);ws3['!cols']=ph.map(()=>({wch:16}));X.utils.book_append_sheet(wb,ws3,'รายจังหวัด');
