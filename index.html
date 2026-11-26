@@ -4,28 +4,70 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>แบบสำรวจ DLTV 2570</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="style.css">
+<meta name="description" content="แบบสำรวจข้อมูลโรงเรียนที่ใช้ DLTV เพื่อการจัดสรรอุปกรณ์การศึกษาทางไกล ปีการศึกษา 2570">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/form.css">
 </head>
 <body>
-<header class="band">
-  <span class="tab">DLTV ปีการศึกษา 2570</span>
-  <h1>แบบสำรวจข้อมูลโรงเรียนที่ใช้ DLTV เพื่อการจัดสรรอุปกรณ์</h1>
-  <p class="lede">กรอกข้อมูลตามสภาพจริง ณ วันที่กรอก ข้อที่มีเครื่องหมาย <b class="req">*</b> ต้องตอบ กด "บันทึกร่าง" ได้ระหว่างกรอก และกด "ส่งแบบสำรวจ" เมื่อกรอกครบ</p>
-</header>
-<main>
-<div id="v-form" class="band view">
-  <div id="dbmsg" class="panel hide"></div>
-  <div class="panel"><b>เคยกรอกไว้แล้ว?</b> ใส่รหัสโรงเรียนและเบอร์มือถือผู้ประสานงานคนที่ 1 เพื่อเรียกข้อมูลเดิมมาแก้ไข
-    <div class="filters"><label>รหัสโรงเรียน<input id="lCode" type="text" inputmode="numeric"></label><label>มือถือผู้ประสานงาน<input id="lTel" type="tel"></label><button id="lBtn" type="button">โหลดข้อมูลเดิม</button></div><span id="lMsg" class="muted"></span></div>
-  <div class="wrap">
-    <aside class="toc" id="toc"></aside>
+<div class="topbar"><div class="in">
+  <div class="logos"></div>
+  <div class="brandtxt"><b>มูลนิธิการศึกษาทางไกลผ่านดาวเทียม</b><span>ในพระบรมราชูปถัมภ์</span></div>
+  <span class="sp"></span>
+  <span class="chip" id="stState">ฉบับร่าง</span>
+</div></div>
+
+<section class="hero"><div id="heroArt"></div><div class="in">
+  <div class="chips"><span class="chip">ปีการศึกษา 2570</span><span class="chip gold hide" id="deadline"></span></div>
+  <h1>แบบสำรวจข้อมูลโรงเรียนที่ใช้ DLTV<br>เพื่อการจัดสรรอุปกรณ์การศึกษาทางไกล</h1>
+  <p>สำรวจเพื่อจัดสรรทีวี ขาตั้ง จานดาวเทียม และโน้ตบุ๊ก โดยพิจารณาจากร้อยละการใช้ DLTV ของโรงเรียน กรอกตามสภาพจริง ณ วันที่กรอก ใช้เวลาประมาณ 15–20 นาที</p>
+  <details class="edit" id="edit"><summary>แก้ไขข้อมูลที่เคยกรอกไว้</summary>
+    <div class="row"><label>รหัสโรงเรียน<input id="lCode" type="text" inputmode="numeric" maxlength="10" autocomplete="off"></label><label>มือถือผู้ประสานงานคนที่ 1<input id="lTel" type="tel" autocomplete="tel"></label><button class="btn gold" id="lBtn" type="button">โหลดข้อมูลเดิม</button></div>
+    <div id="lMsg" class="small"></div>
+  </details>
+</div></section>
+
+<div class="shell">
+  <aside class="rail-card">
+    <ol class="rail" id="rail" aria-label="ขั้นตอนแบบสำรวจ"></ol>
+    <div class="live" aria-live="polite">
+      <div class="muted small">ร้อยละการใช้ DLTV</div>
+      <div class="ring"><svg viewBox="0 0 120 120"><circle class="bg" cx="60" cy="60" r="52"/><circle class="fg" id="ringFg" cx="60" cy="60" r="52"/></svg><div class="v"><b id="ringV">–</b><span>%</span></div></div>
+      <span class="chip" id="ringG"></span>
+      <ul id="gapList"></ul>
+      <div class="muted small" style="margin-top:8px">จำนวนอุปกรณ์ที่ขาด คำนวณจากข้อมูลที่กรอก</div>
+    </div>
+  </aside>
+  <div class="stage" id="stage">
+    <div class="panel err hide" id="cfgErr"></div>
+    <div class="panel err hide" id="closed"><b>ปิดรับแบบสำรวจแล้ว</b> ระบบจะไม่รับการบันทึกเพิ่มเติม</div>
+    <div class="prog" id="prog"><i></i></div>
     <form id="sv" novalidate></form>
   </div>
 </div>
-</main>
+
+<footer class="foot">สอบถามข้อมูลเพิ่มเติม: กลุ่มงานสารสนเทศ มูลนิธิการศึกษาทางไกลผ่านดาวเทียม ในพระบรมราชูปถัมภ์ โทร 02 282 6734 ต่อ 1800–1801, 095 784 6797</footer>
+
+<div class="actionbar"><div class="in">
+  <button class="btn" type="button" id="prev">← ก่อนหน้า</button>
+  <div class="mid"><b id="stepNo"></b><span id="saveSt" class="st">ยังไม่ได้บันทึก</span></div>
+  <span class="mpct" id="mPct">–</span>
+  <button class="btn" type="button" id="saveBtn"><span class="t">บันทึกร่าง</span><span class="s">บันทึก</span></button>
+  <button class="btn pri" type="button" id="next">ถัดไป →</button>
+  <button class="btn gold hide" type="button" id="submit">ส่งแบบสำรวจ</button>
+</div></div>
+
+<div class="overlay hide" id="done" role="dialog" aria-modal="true" aria-labelledby="doneT"><div class="card">
+  <svg class="check" viewBox="0 0 84 84" aria-hidden="true"><circle cx="42" cy="42" r="39"/><path d="M26 43 l11 11 l21 -23"/></svg>
+  <h2 id="doneT">ส่งแบบสำรวจเรียบร้อย</h2>
+  <div id="doneBody"></div>
+  <button class="btn pri" type="button" id="closeDone">กลับไปดูแบบสำรวจ</button>
+</div></div>
+
 <script src="config.js"></script>
+<script src="common.js"></script>
+<script src="engine.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

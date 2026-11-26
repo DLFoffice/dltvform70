@@ -1,215 +1,222 @@
-/* แบบสำรวจ DLTV 2570 — ส่วนหน้า (frontend) เรียก Google Apps Script ผ่าน config.js */
+/* แบบสำรวจ DLTV 2570 — หน้าโรงเรียน (ต้องโหลด config.js, common.js, engine.js ก่อน) */
 {
-const G=['อ.1','อ.2','อ.3','ป.1','ป.2','ป.3','ป.4','ป.5','ป.6','ม.1','ม.2','ม.3'];
-const SUB={k:['เคลื่อนไหวและจังหวะ','เสริมประสบการณ์','ศิลปะสร้างสรรค์','เสรี/เล่นตามมุม','กลางแจ้ง','เกมการศึกษา'],
-p:['ภาษาไทย','คณิตศาสตร์','วิทย์ฯ และเทคโนโลยี','สังคมศึกษาฯ','ประวัติศาสตร์','สุขศึกษาฯ','ศิลปะ','การงานอาชีพ','ภาษาอังกฤษ'],
-m:['ภาษาไทย','คณิตศาสตร์','วิทยาศาสตร์ฯ','วิทยาการคำนวณ','สังคมศึกษาฯ','ประวัติศาสตร์','สุขศึกษาฯ','ทัศนศิลป์','ดนตรี','นาฏศิลป์','การออกแบบฯ','การงานอาชีพ','ภาษาอังกฤษ']};
-const subOf=gi=>gi<3?SUB.k:gi<9?SUB.p:SUB.m;
-const DEF={A:[25,25,25,30,30,30,30,30,30,35,35,35],bands:[100,90,80,70,60],w:{room:40,age:15,access:15,net:10,hist:10,teach:10},nbPer:4,refYear:2569,stock:{tv:'',stand:'',dish:'',nb:''},deadline:''};
-const EQ=[['tv','ทีวี','เครื่อง'],['stand','ขาตั้ง/ขาแขวน','ชุด'],['dish','จานดาวเทียม','ชุด'],['nb','โน้ตบุ๊ก','เครื่อง']];
 const TVS=[['ok','ใช้ได้ปกติ'],['repair','ชำรุดซ่อมได้'],['broken','ชำรุดใช้ไม่ได้'],['none','ไม่มี']];
 const STS=[['floor_ok','ตั้งพื้น ใช้ได้'],['wall_ok','ติดผนัง ใช้ได้'],['broken','ชำรุด'],['none','ไม่มี']];
 const IRDS=[['ok','ใช้ได้'],['broken','ชำรุด'],['none','ไม่มี']];
 const CAB=[['ok','มี'],['broken','ชำรุด'],['none','ไม่มี']];
 const DISH=[['ok','ใช้ได้ปกติ'],['weak','สัญญาณไม่ดี'],['broken','ชำรุดใช้ไม่ได้'],['none','ไม่มี']];
 const PCC=[['ok','ใช้ได้'],['slow','ช้ามาก'],['broken','ชำรุด']];
-const $=s=>document.querySelector(s);
-const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-const num=v=>{const n=Number(v);return v===''||v==null||isNaN(n)?0:n};
-const fmt=(n,d=0)=>Number(n).toLocaleString('th-TH',{minimumFractionDigits:d,maximumFractionDigits:d});
-let db=null,user=null,uid=null,isAdmin=false,cfg=JSON.parse(JSON.stringify(DEF)),S=blank(),docPath=null,saveT=null,lastData=[],lastRes=null,dataSrc='';
+const STEPS=[
+ ['s1','ข้อมูลพื้นฐาน','ข้อมูลโรงเรียนและผู้ประสานงาน'],
+ ['s2','การใช้ DLTV','สถานะ รูปแบบตารางสอน และช่องทางรับชม'],
+ ['s3','บริบทโรงเรียน','การเดินทาง ไฟฟ้า อินเทอร์เน็ต และบุคลากร'],
+ ['s4','การใช้รายชั้น','จำนวนคาบที่ใช้ DLTV ต่อสัปดาห์'],
+ ['s5','ห้องเรียนและอุปกรณ์','ทีวี ขาตั้ง และกล่องรับสัญญาณรายห้อง'],
+ ['s6','จานดาวเทียม','จานรับสัญญาณรายอาคาร'],
+ ['s7','คอมพิวเตอร์','โน้ตบุ๊กและคอมพิวเตอร์สำหรับการสอน'],
+ ['s8','ประวัติและความต้องการ','อุปกรณ์ที่เคยได้รับและที่ต้องการ'],
+ ['s9','ตรวจทานและรับรอง','ตรวจความครบถ้วนและรับรองข้อมูล']];
+let cfg=JSON.parse(JSON.stringify(DEF)),S=blank(),cur='s1',dirty=false,saving=false,tried={},verifyTel='';
 function blank(){return{v:1,status:'draft',coord:[{},{}],grades:G.map(()=>({open:false})),subj:{},rooms:[{}],buildings:[{}],pcs:[],history:[],circuits:[],channels:[],elecSrc:[],pcUse:[],req:{},cert:{}}}
-function toast(m){const t=document.createElement('div');t.className='toast';t.textContent=m;document.body.append(t);setTimeout(()=>t.remove(),2600)}
 function getP(o,k){return k.split('.').reduce((a,s)=>a==null?a:a[s],o)}
 function setP(o,k,v){const p=k.split('.');let a=o;p.slice(0,-1).forEach((s,i)=>{if(a[s]==null)a[s]=/^\d+$/.test(p[i+1])?[]:{};a=a[s]});a[p[p.length-1]]=v}
-const opt=(arr,blankLabel='— เลือก —')=>`<option value="">${blankLabel}</option>`+arr.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
-function inp(k,l,o={}){return`<label class="f ${o.w||''}"><span>${l}${o.req?' <b class="req">*</b>':''}</span><input data-k="${k}" type="${o.t||'text'}" ${o.t==='number'?'min="0" step="any" inputmode="decimal"':''} ${o.ph?`placeholder="${o.ph}"`:''}></label>`}
-function rad(k,l,arr,req,w='wide'){return`<fieldset class="f ${w}"><legend>${l}${req?' <b class="req">*</b>':''}</legend><div class="opts">${arr.map(([v,t])=>`<label class="opt"><input type="radio" name="${k}" data-k="${k}" value="${v}">${t}</label>`).join('')}</div></fieldset>`}
-function chk(k,l,arr){return`<fieldset class="f wide"><legend>${l}</legend><div class="opts">${arr.map(([v,t])=>`<label class="opt"><input type="checkbox" data-k="${k}" data-multi value="${v}">${t}</label>`).join('')}</div></fieldset>`}
-function sel(k,arr){return`<select data-k="${k}">${opt(arr,'—')}</select>`}
-
-const SECS=[['s1','1 ข้อมูลพื้นฐาน'],['s2','2 การใช้ DLTV'],['s3','3 บริบทโรงเรียน'],['s4','4 การใช้รายชั้น'],['s5','5 ห้องเรียนและอุปกรณ์'],['s6','6 จานดาวเทียม'],['s7','7 โน้ตบุ๊ก'],['s8','8 ประวัติและความต้องการ'],['s9','9 รับรองข้อมูล']];
-function dynTable(name,cols,rows){return`<div class="scroll"><table class="tbl stack"><thead><tr><th>#</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${i+1}</td>${cols.map(c=>`<td>${c[2]==='n'?`<input type="number" min="0" data-k="${name}.${i}.${c[0]}">`:Array.isArray(c[2])?sel(`${name}.${i}.${c[0]}`,c[2]):`<input type="text" data-k="${name}.${i}.${c[0]}">`}</td>`).join('')}<td><button type="button" class="sm" data-del="${name}" data-i="${i}" aria-label="ลบแถว ${i+1}">ลบ</button></td></tr>`).join('')}</tbody></table></div><button type="button" class="sm" data-add="${name}" style="margin-top:8px">+ เพิ่มแถว</button>`}
+const opt=(arr,b='— เลือก —')=>`<option value="">${b}</option>`+arr.map(([v,l])=>`<option value="${v}">${l}</option>`).join('');
+const inp=(k,l,o={})=>`<label class="f ${o.w||''}"><span>${l}${o.req?' <b class="req">*</b>':''}</span><input data-k="${k}" type="${o.t||'text'}" ${o.t==='number'?'min="0" step="any" inputmode="decimal"':''} ${o.ph?`placeholder="${o.ph}"`:''} ${o.im?`inputmode="${o.im}"`:''}></label>`;
+const rad=(k,l,arr,req)=>`<fieldset class="f wide" data-f="${k}"><legend>${l}${req?' <b class="req">*</b>':''}</legend><div class="opts">${arr.map(([v,t])=>`<label class="opt"><input type="radio" name="${k}" data-k="${k}" value="${v}">${t}</label>`).join('')}</div></fieldset>`;
+const chk=(k,l,arr)=>`<fieldset class="f wide"><legend>${l}</legend><div class="opts">${arr.map(([v,t])=>`<label class="opt"><input type="checkbox" data-k="${k}" data-multi value="${v}">${t}</label>`).join('')}</div></fieldset>`;
+const sel=(k,arr)=>`<select data-k="${k}">${opt(arr,'—')}</select>`;
 const DYN={
  circuits:[['type','ประเภท (Fiber, ADSL, ดาวเทียม, 4G/5G)'],['isp','ผู้ให้บริการ'],['down','Download (Mbps)','n'],['up','Upload (Mbps)','n']],
  rooms:[['bld','อาคารที่','n'],['grades','ชั้นที่เรียนในห้อง'],['students','นักเรียน','n'],['tv','ทีวี: สภาพ',TVS],['size','ขนาด (นิ้ว)','n'],['year','ปีที่ได้รับ (พ.ศ.)','n'],['stand','ขาตั้ง/ขาแขวน',STS],['ird','กล่อง IRD',IRDS],['cable','สายสัญญาณจากจาน',CAB]],
  buildings:[['rooms','ห้องที่ใช้ DLTV','n'],['dishes','จาน (ชุด)','n'],['band','ชนิด',[['C','C-Band'],['KU','KU-Band']]],['size','ขนาดจาน'],['dish','สภาพจาน',DISH],['lnb','LNB/มัลติสวิตช์',IRDS],['year','ปีที่ติดตั้ง (พ.ศ.)','n']],
  pcs:[['type','ประเภท',[['nb','โน้ตบุ๊ก'],['pc','เดสก์ท็อป'],['tab','แท็บเล็ต']]],['owner','เจ้าของ',[['school','โรงเรียน'],['teacher','ครู']]],['year','ปีที่ได้มา (พ.ศ.)','n'],['cond','สภาพ',PCC],['use','ใช้ทำอะไรกับ DLTV']],
  history:[['year','ปี (พ.ศ.)','n'],['org','หน่วยงานที่ให้'],['item','อุปกรณ์'],['qty','จำนวน','n']]};
-function renderDyn(name){const el=document.getElementById('d-'+name);if(!el)return;if(!Array.isArray(S[name]))S[name]=[];el.innerHTML=dynTable(name,DYN[name],S[name]);fill(el)}
+function dynTable(name){const cols=DYN[name],rows=S[name];return`<div class="scroll"><table class="tbl stack"><thead><tr><th>#</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="rise"><td>${i+1}</td>${cols.map(c=>`<td>${c[2]==='n'?`<input type="number" min="0" data-k="${name}.${i}.${c[0]}" aria-label="${c[1]} แถว ${i+1}">`:Array.isArray(c[2])?sel(`${name}.${i}.${c[0]}`,c[2]):`<input type="text" data-k="${name}.${i}.${c[0]}" aria-label="${c[1]} แถว ${i+1}">`}</td>`).join('')}<td><button type="button" class="btn sm ghost" data-del="${name}" data-i="${i}" aria-label="ลบแถว ${i+1}">ลบ</button></td></tr>`).join('')}</tbody></table></div><button type="button" class="btn sm" data-add="${name}" style="margin-top:10px">+ เพิ่มแถว</button>`}
+function renderDyn(name){const el=document.getElementById('d-'+name);if(!el)return;if(!Array.isArray(S[name]))S[name]=[];el.innerHTML=dynTable(name);fill(el)}
+const head=(id)=>{const i=STEPS.findIndex(s=>s[0]===id),s=STEPS[i];return`<header class="sh"><span class="num">${i+1}</span><div><h2>${s[1]}</h2><p class="muted">${s[2]}</p></div></header>`};
 
-function renderForm(){
- $('#toc').innerHTML=SECS.map(([id,t])=>`<a href="#${id}">${t}</a>`).join('')+`<div class="stat" id="fstat"></div>`;
- const gradeRows=G.map((g,i)=>`<tr><td>${g}</td><td><input type="checkbox" data-k="grades.${i}.open" aria-label="เปิดสอน ${g}"></td><td><input type="number" min="0" data-k="grades.${i}.students" aria-label="นักเรียน ${g}"></td><td class="n">${cfg.A[i]}</td><td><input type="number" min="0" data-k="grades.${i}.B" aria-label="คาบที่ใช้ ${g}"></td><td class="n" id="pc${i}">–</td></tr>`).join('');
- const mtx=(lbl,from,to,list)=>`<h3 style="margin-top:16px">${lbl}</h3><div class="scroll"><table class="tbl mtx"><thead><tr><th>ชั้น</th>${list.map(s=>`<th>${s}</th>`).join('')}</tr></thead><tbody>${G.slice(from,to).map((g,j)=>`<tr><td>${g}</td>${list.map((s,si)=>`<td>${sel(`subj.${from+j}.${si}`,[['✓','✓'],['◐','◐'],['✗','✗']])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
- $('#sv').innerHTML=`
- <section class="sec" id="s1"><h2>ส่วนที่ 1 ข้อมูลพื้นฐานและผู้ประสานงาน</h2>
-  <div class="grid">${inp('code','รหัสโรงเรียน (10 หลัก)',{req:1,ph:'เช่น 1010720001'})}${inp('name','ชื่อโรงเรียน',{req:1})}${inp('tambon','ตำบล')}${inp('amphoe','อำเภอ')}${inp('province','จังหวัด',{req:1})}${inp('zip','รหัสไปรษณีย์')}${inp('phone','โทรศัพท์',{t:'tel'})}${inp('lat','ละติจูด')}${inp('lng','ลองจิจูด')}${inp('students','นักเรียนทั้งหมด (คน)',{t:'number'})}</div>
+function sectionsHTML(){
+ const gradeRows=G.map((g,i)=>`<tr><td><b>${g}</b></td><td><input type="checkbox" data-k="grades.${i}.open" aria-label="เปิดสอน ${g}"></td><td><input type="number" min="0" data-k="grades.${i}.students" aria-label="นักเรียน ${g}"></td><td class="n">${cfg.A[i]}</td><td><input type="number" min="0" data-k="grades.${i}.B" aria-label="คาบที่ใช้ ${g}"></td><td class="n" id="pc${i}">–</td></tr>`).join('');
+ const mtx=(lbl,from,to,list)=>`<h3 style="margin-top:18px">${lbl}</h3><div class="scroll"><table class="tbl mtx"><thead><tr><th>ชั้น</th>${list.map(s=>`<th>${s}</th>`).join('')}</tr></thead><tbody>${G.slice(from,to).map((g,j)=>`<tr><td>${g}</td>${list.map((s,si)=>`<td>${sel(`subj.${from+j}.${si}`,[['✓','✓'],['◐','◐'],['✗','✗']])}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+ return`
+ <section class="step card" data-step="s1">${head('s1')}
+  <div class="grid">${inp('code','รหัสโรงเรียน (10 หลัก)',{req:1,ph:'เช่น 1010720001',im:'numeric'})}${inp('name','ชื่อโรงเรียน',{req:1})}${inp('tambon','ตำบล')}${inp('amphoe','อำเภอ')}${inp('province','จังหวัด',{req:1})}${inp('zip','รหัสไปรษณีย์',{im:'numeric'})}${inp('phone','โทรศัพท์โรงเรียน',{t:'tel'})}${inp('lat','ละติจูด',{im:'decimal'})}${inp('lng','ลองจิจูด',{im:'decimal'})}${inp('students','นักเรียนทั้งหมด (คน)',{t:'number'})}</div>
   ${rad('affil','สังกัด',[['obec','สพฐ.'],['bpp','ตชด.'],['lao','อปท.'],['private','เอกชน'],['other','อื่น ๆ']],1)}
   ${chk('levels','ระดับที่เปิดสอน',[['k','อนุบาล'],['p','ประถมศึกษา'],['m','มัธยมศึกษาตอนต้น']])}
-  <h3 style="margin-top:12px">ผู้ประสานงาน</h3>
+  <h3 class="sub">ผู้ประสานงาน</h3>
+  <p class="muted small">เบอร์มือถือของผู้ประสานงานคนที่ 1 ใช้ยืนยันตัวตนเมื่อกลับมาแก้ไขข้อมูล</p>
   ${[0,1].map(i=>`<div class="grid">${inp(`coord.${i}.name`,`คนที่ ${i+1} ชื่อ–นามสกุล`,{req:!i})}${inp(`coord.${i}.pos`,'ตำแหน่ง')}${inp(`coord.${i}.tel`,'มือถือ',{t:'tel',req:!i})}${inp(`coord.${i}.email`,'อีเมล',{t:'email'})}${inp(`coord.${i}.line`,'LINE ID')}</div>`).join('')}
  </section>
- <section class="sec" id="s2"><h2>ส่วนที่ 2 การใช้ DLTV</h2>
-  ${rad('use','2.1 สถานะการใช้ DLTV ในปัจจุบัน',[['a','ก. ใช้ DLTV ในการเรียนการสอน'],['b','ข. เคยใช้ แต่หยุดใช้ทั้งหมดหรือบางชั้นเพราะอุปกรณ์ชำรุด'],['c','ค. ไม่ใช้ DLTV (จบแบบสำรวจ ข้ามไปส่วนที่ 9)']],1)}
-  <div class="panel hide" id="useB">กรอกส่วนที่ 4 ตามตารางสอนที่ใช้ก่อนอุปกรณ์ชำรุด และแนบรูปอุปกรณ์ที่ชำรุดในลิงก์หลักฐาน มูลนิธิฯ จะตรวจสอบก่อนจัดสรร</div>
+ <section class="step card" data-step="s2">${head('s2')}
+  ${rad('use','2.1 สถานะการใช้ DLTV ในปัจจุบัน',[['a','ก. ใช้ DLTV ในการเรียนการสอน'],['b','ข. เคยใช้ แต่หยุดใช้ทั้งหมดหรือบางชั้นเพราะอุปกรณ์ชำรุด'],['c','ค. ไม่ใช้ DLTV']],1)}
+  <div class="panel warn hide" id="useB">กรอกส่วนที่ 4 ตามตารางสอนที่ใช้ก่อนอุปกรณ์ชำรุด และแนบลิงก์รูปอุปกรณ์ที่ชำรุดในขั้นที่ 8 มูลนิธิฯ จะตรวจสอบก่อนจัดสรร</div>
+  <div class="panel hide" id="useC">โรงเรียนที่ไม่ใช้ DLTV ไม่ต้องกรอกขั้นที่ 3–8 กด "ถัดไป" เพื่อไปรับรองข้อมูลและส่งแบบสำรวจได้เลย</div>
   <div class="grid">${inp('years','2.2 ใช้ DLTV มาแล้ว (ปี)',{t:'number'})}</div>
   ${rad('sched','2.3 รูปแบบการจัดตารางสอน',[['origin','ตามตารางออกอากาศของโรงเรียนต้นทาง'],['own','ปรับตามบริบทของโรงเรียน']],1)}
   ${chk('channels','2.4 ช่องทางรับชม (เลือกได้หลายข้อ)',[['sat','จานดาวเทียม'],['live','อินเทอร์เน็ต รับชมสด'],['vod','อินเทอร์เน็ต รับชมย้อนหลัง'],['other','อื่น ๆ']])}
  </section>
- <div id="mainSecs">
- <section class="sec" id="s3"><h2>ส่วนที่ 3 บริบทของโรงเรียน</h2>
-  <h3>3.1 การเดินทาง</h3><div class="grid">${inp('dist','ระยะทางจากอำเภอ (กม.)',{t:'number'})}${inp('hours','เวลาเดินทาง (ชั่วโมง)',{t:'number'})}${inp('closedMonths','เดือนที่เข้าถึงยาก (ถ้ามี)')}</div>
+ <section class="step card" data-step="s3">${head('s3')}
+  <h3 class="sub">3.1 การเดินทาง</h3><div class="grid">${inp('dist','ระยะทางจากอำเภอ (กม.)',{t:'number'})}${inp('hours','เวลาเดินทาง (ชั่วโมง)',{t:'number'})}${inp('closedMonths','เดือนที่เข้าถึงยาก (ถ้ามี)')}</div>
   ${rad('road','พื้นผิวถนนช่วงที่แย่ที่สุด',[['paved','คอนกรีต/ลาดยาง'],['laterite','ลูกรัง'],['dirt','ดิน'],['other','อื่น ๆ']],1)}
   ${rad('vehicle','พาหนะที่เข้าถึงได้',[['all','รถทุกประเภท'],['4wd','เฉพาะรถขับเคลื่อน 4 ล้อ'],['moto','จักรยานยนต์/เดินเท้าเท่านั้น'],['boat','ทางเรือ']],1)}
-  <h3>3.2 ระบบไฟฟ้า</h3>
+  <h3 class="sub">3.2 ระบบไฟฟ้า</h3>
   ${rad('elec','สถานะไฟฟ้า',[['yes','มีไฟฟ้าใช้'],['no','ไม่มีไฟฟ้าใช้']],1)}
   ${chk('elecSrc','แหล่งไฟฟ้า',[['pea','การไฟฟ้าส่วนภูมิภาค'],['solar','โซลาร์เซลล์'],['gen','เครื่องปั่นไฟ'],['other','อื่น ๆ']])}
   <div class="grid">${inp('solarKw','โซลาร์เซลล์ (กิโลวัตต์)',{t:'number'})}${inp('genKw','เครื่องปั่นไฟ (กิโลวัตต์)',{t:'number'})}</div>
   ${rad('elecStable','ความเสถียร',[['stable','เสถียร'],['unstable','ไม่เสถียร (ไฟตก/ดับเกินร้อยละ 20 ของเวลาเรียน)']])}
   ${chk('protect','ระบบป้องกัน',[['ground','สายดิน'],['lightning','ระบบป้องกันฟ้าผ่า']])}
-  <h3>3.3 อินเทอร์เน็ต</h3>
+  <h3 class="sub">3.3 อินเทอร์เน็ต</h3>
   ${rad('net','อินเทอร์เน็ต',[['none','ไม่มี'],['yes','มี']],1)}
-  <div id="d-circuits"></div>
-  ${rad('netQual','รับชม DLTV ผ่านอินเทอร์เน็ตได้',[['smooth','ลื่นไหล'],['some','สะดุดบางครั้ง'],['no','ใช้ไม่ได้']])}
-  <h3>3.4 บุคลากร</h3>
+  <div id="netBox"><div id="d-circuits"></div>
+  ${rad('netQual','รับชม DLTV ผ่านอินเทอร์เน็ตได้',[['smooth','ลื่นไหล'],['some','สะดุดบางครั้ง'],['no','ใช้ไม่ได้']])}</div>
+  <h3 class="sub">3.4 บุคลากร</h3>
   ${rad('director','ผู้บริหารสถานศึกษา',[['yes','มี'],['acting','ไม่มี (มีผู้รักษาการ)']],1)}
   ${rad('itTeacher','ครูผู้ดูแลระบบ IT/DLTV',[['yes','มี'],['no','ไม่มี']])}
   <div class="grid">${inp('teachers','ครูผู้สอนทั้งหมด (คน)',{t:'number',req:1})}${inp('dltvTeachers','ครูที่ใช้ DLTV (คน)',{t:'number'})}</div>
  </section>
- <section class="sec" id="s4"><h2>ส่วนที่ 4 การใช้ DLTV รายชั้น</h2>
-  <p class="note">ติ๊กชั้นที่เปิดสอน แล้วกรอกจำนวนคาบที่ใช้ DLTV จริงต่อสัปดาห์ (B) ไม่เกินคาบที่ออกอากาศ (A) นับทั้งการรับชมสดและย้อนหลัง</p>
-  <div class="scroll"><table class="tbl stack"><thead><tr><th>ชั้น</th><th>เปิดสอน</th><th>นักเรียน (คน)</th><th class="n">คาบออกอากาศ/สัปดาห์ (A)</th><th>คาบที่ใช้จริง (B)</th><th class="n">% การใช้</th></tr></thead><tbody>${gradeRows}<tr><th>รวม</th><th></th><th id="sumSt"></th><th class="n" id="sumA"></th><th id="sumB"></th><th class="n" id="sumP"></th></tr></tbody></table></div>
-  <details style="margin-top:16px"><summary style="cursor:pointer;font-weight:600;min-height:44px;padding-top:8px">4.2 รายละเอียดรายวิชา (✓ ใช้ทุกคาบ · ◐ ใช้บางคาบ · ✗ ไม่ใช้)</summary>
+ <section class="step card" data-step="s4">${head('s4')}
+  <div class="panel small">ติ๊กชั้นที่เปิดสอน แล้วกรอกจำนวนคาบที่ใช้ DLTV จริงต่อสัปดาห์ (B) ไม่เกินคาบที่ออกอากาศ (A) นับทั้งการรับชมสดและย้อนหลัง</div>
+  <div class="scroll"><table class="tbl stack" id="gtbl"><thead><tr><th>ชั้น</th><th>เปิดสอน</th><th>นักเรียน (คน)</th><th class="n">คาบออกอากาศ (A)</th><th>คาบที่ใช้จริง (B)</th><th class="n">% การใช้</th></tr></thead><tbody>${gradeRows}</tbody><tfoot><tr><th>รวม</th><th></th><th id="sumSt"></th><th class="n" id="sumA"></th><th id="sumB"></th><th class="n" id="sumP"></th></tr></tfoot></table></div>
+  <details class="more"><summary>4.2 รายละเอียดรายวิชา (✓ ใช้ทุกคาบ · ◐ ใช้บางคาบ · ✗ ไม่ใช้)</summary>
   ${mtx('ก. อนุบาล',0,3,SUB.k)}${mtx('ข. ประถมศึกษา',3,9,SUB.p)}${mtx('ค. มัธยมศึกษาตอนต้น',9,12,SUB.m)}</details>
-  <div class="grid">${inp('timetableLink','4.3 ลิงก์ตารางสอน (Google Drive หรืออื่น ๆ)',{t:'url',w:'wide',req:1})}</div>
+  <div class="grid">${inp('timetableLink','4.3 ลิงก์ตารางสอน (Google Drive หรืออื่น ๆ)',{t:'url',w:'wide',req:1,ph:'https://'})}</div>
  </section>
- <section class="sec" id="s5"><h2>ส่วนที่ 5 ห้องเรียนและอุปกรณ์รายห้อง</h2>
-  <p class="note">1 แถวต่อ 1 ห้องเรียนที่ใช้ DLTV ไม่รวมห้องปฏิบัติการ ห้องคละชั้นให้ระบุทุกชั้น เช่น "ป.1–ป.2" ส่วนชั้นที่มีหลายห้องให้กรอกแยกแถว เช่น "ป.1/1"</p>
+ <section class="step card" data-step="s5">${head('s5')}
+  <div class="panel small">1 แถวต่อ 1 ห้องเรียนที่ใช้ DLTV ไม่รวมห้องปฏิบัติการ ห้องคละชั้นให้ระบุทุกชั้น เช่น "ป.1–ป.2" ชั้นที่มีหลายห้องให้กรอกแยกแถว เช่น "ป.1/1"</div>
   <div id="d-rooms"></div>
  </section>
- <section class="sec" id="s6"><h2>ส่วนที่ 6 จานรับสัญญาณดาวเทียม (รายอาคาร)</h2>
-  <p class="note">ลำดับแถวคือเลขอาคาร ใช้เลขเดียวกับคอลัมน์ "อาคารที่" ในส่วนที่ 5</p>
+ <section class="step card" data-step="s6">${head('s6')}
+  <div class="panel small">ลำดับแถวคือเลขอาคาร ใช้เลขเดียวกับคอลัมน์ "อาคารที่" ในขั้นที่ 5</div>
   <div id="d-buildings"></div>
   ${rad('rainLoss','สัญญาณหายเมื่อฝนตก',[['no','ไม่หาย'],['some','หายบางครั้ง'],['always','หายทุกครั้งที่ฝนตก']])}
  </section>
- <section class="sec" id="s7"><h2>ส่วนที่ 7 คอมพิวเตอร์/โน้ตบุ๊กสำหรับการสอน DLTV</h2>
-  <p class="note">ระบุทุกเครื่องที่ใช้กับการสอน DLTV ถ้าไม่มีให้เว้นตารางว่าง</p>
+ <section class="step card" data-step="s7">${head('s7')}
+  <div class="panel small">ระบุทุกเครื่องที่ใช้กับการสอน DLTV ถ้าไม่มีให้เว้นตารางว่าง</div>
   <div id="d-pcs"></div>
   ${chk('pcUse','การใช้งานกับ DLTV',[['vod','ต่อทีวีรับชมย้อนหลัง'],['media','ดาวน์โหลดใบงาน/สื่อ'],['prep','เตรียมการสอน'],['report','บันทึกผล/ส่งข้อมูล']])}
  </section>
- <section class="sec" id="s8"><h2>ส่วนที่ 8 ประวัติการได้รับอุปกรณ์และความต้องการ</h2>
-  <h3>8.1 อุปกรณ์ที่ได้รับในรอบ 5 ปี</h3>
+ <section class="step card" data-step="s8">${head('s8')}
+  <h3 class="sub">8.1 อุปกรณ์ที่ได้รับในรอบ 5 ปี</h3>
   <label class="opt"><input type="checkbox" data-k="neverReceived">ไม่เคยได้รับในรอบ 5 ปี</label>
-  <div id="d-history"></div>
-  <h3 style="margin-top:16px">8.2 ความต้องการ</h3>
-  <p class="note">ระบบคำนวณจำนวนที่ขาดจากส่วนที่ 5–7 ให้ หากต้องการน้อยกว่านั้นให้กรอกจำนวนที่ขอ (เว้นว่าง = ขอเท่าที่ขาด)</p>
-  <div class="scroll"><table class="tbl stack"><thead><tr><th>อุปกรณ์</th><th class="n">ขาด (ระบบ)</th><th>จำนวนที่ขอ</th></tr></thead><tbody>${EQ.map(([k,l,u])=>`<tr><td>${l}</td><td class="n" id="gap-${k}">–</td><td><input type="number" min="0" data-k="req.${k}" aria-label="จำนวนที่ขอ ${l}"></td></tr>`).join('')}</tbody></table></div>
-  <div class="grid">${inp('reqReason','เหตุผลประกอบ',{w:'wide'})}${inp('evidence','ลิงก์รูปถ่ายอุปกรณ์ที่ชำรุดหรือไม่มี',{t:'url',w:'wide'})}</div>
+  <div id="histBox" style="margin-top:10px"><div id="d-history"></div></div>
+  <h3 class="sub">8.2 ความต้องการ</h3>
+  <p class="muted small">ระบบคำนวณจำนวนที่ขาดจากขั้นที่ 5–7 ให้ หากต้องการน้อยกว่านั้นให้กรอกจำนวนที่ขอ (เว้นว่าง = ขอเท่าที่ขาด)</p>
+  <div class="eqgrid">${EQ.map(([k,l,u])=>`<div class="eq"><span>${l}</span><b id="gap-${k}">0</b><small>${u}ที่ขาด</small><label class="small">จำนวนที่ขอ<input type="number" min="0" data-k="req.${k}" aria-label="จำนวนที่ขอ ${l}"></label></div>`).join('')}</div>
+  <div class="grid">${inp('reqReason','เหตุผลประกอบ',{w:'wide'})}${inp('evidence','ลิงก์รูปถ่ายอุปกรณ์ที่ชำรุดหรือไม่มี',{t:'url',w:'wide',ph:'https://'})}</div>
   ${rad('care','มีผู้รับผิดชอบดูแลและจุดเก็บที่ปลอดภัย',[['yes','มี'],['no','ไม่มี']])}
  </section>
- </div>
- <section class="sec" id="s9"><h2>ส่วนที่ 9 การรับรองข้อมูล</h2>
-  <label class="opt"><input type="checkbox" data-k="cert.agree"><span>ขอรับรองว่าข้อมูลทั้งหมดตรงกับความเป็นจริง และยินยอมให้มูลนิธิฯ ตรวจสอบข้อมูลและสถานที่ได้ <b class="req">*</b></span></label>
+ <section class="step card" data-step="s9">${head('s9')}
+  <div id="review"></div>
+  <label class="opt block" style="margin-top:12px"><input type="checkbox" data-k="cert.agree"><span>ขอรับรองว่าข้อมูลทั้งหมดตรงกับความเป็นจริง และยินยอมให้มูลนิธิฯ ตรวจสอบข้อมูลและสถานที่ได้ <b class="req">*</b></span></label>
   <div class="grid">${inp('cert.filler','ผู้กรอกข้อมูล')}${inp('cert.fillerPos','ตำแหน่ง')}${inp('cert.director','ผู้อำนวยการสถานศึกษา (ชื่อ–นามสกุล)',{req:1})}${inp('cert.date','วันที่รับรอง',{t:'date'})}</div>
-  <div id="vmsg" class="panel err hide"></div>
-  <div class="bar"><button type="button" id="bSave">บันทึกร่าง</button><button type="button" class="red" id="bSubmit">ส่งแบบสำรวจ</button><span id="saveSt" class="muted"></span></div>
-  <p class="muted" style="font-size:14px;margin-top:16px">สอบถาม: กลุ่มงานสารสนเทศ มูลนิธิการศึกษาทางไกลผ่านดาวเทียม ในพระบรมราชูปถัมภ์ โทร 02 282 6734 ต่อ 1800–1801, 095 784 6797</p>
- </section>`;
- Object.keys(DYN).forEach(renderDyn);fill($('#sv'));refresh();
-}
+ </section>`}
+
+/* ---------- render & bind ---------- */
+function renderForm(){
+ $('#sv').innerHTML=sectionsHTML();Object.keys(DYN).forEach(renderDyn);fill($('#sv'));
+ $$('.step').forEach(s=>s.classList.toggle('on',s.dataset.step===cur));refresh();renderRail()}
 function fill(root){root.querySelectorAll('[data-k]').forEach(el=>{const v=getP(S,el.dataset.k);if(el.type==='radio')el.checked=v===el.value;else if(el.type==='checkbox')el.checked=el.hasAttribute('data-multi')?(v||[]).includes(el.value):!!v;else el.value=v??''})}
-$('#sv').addEventListener('input',onEdit);$('#sv').addEventListener('change',onEdit);
-function onEdit(e){const el=e.target,k=el.dataset?.k;if(!k)return;if(e.type==='input'&&(el.type==='radio'||el.type==='checkbox'||el.tagName==='SELECT'))return;
+function onEdit(e){const el=e.target,k=el.dataset&&el.dataset.k;if(!k)return;if(e.type==='input'&&(el.type==='radio'||el.type==='checkbox'||el.tagName==='SELECT'))return;
  if(el.type==='radio')setP(S,k,el.value);else if(el.type==='checkbox'){if(el.hasAttribute('data-multi')){const a=new Set(getP(S,k)||[]);el.checked?a.add(el.value):a.delete(el.value);setP(S,k,[...a])}else setP(S,k,el.checked)}
  else if(el.type==='number')setP(S,k,el.value===''?'':Number(el.value));else setP(S,k,el.value);
- refresh();schedule()}
-$('#sv').addEventListener('click',e=>{const a=e.target.dataset?.add,d=e.target.dataset?.del;if(a){S[a].push({});renderDyn(a);refresh();schedule()}if(d){S[d].splice(+e.target.dataset.i,1);renderDyn(d);refresh();schedule()}});
+ el.classList.remove('invalid');el.closest('.invalid')?.classList.remove('invalid');
+ if(!dirty){dirty=true;status('มีการแก้ไขที่ยังไม่บันทึก','warn')}refresh();if(k==='use')renderRail()}
+$('#sv').addEventListener('input',onEdit);$('#sv').addEventListener('change',onEdit);
+$('#sv').addEventListener('click',e=>{const b=e.target.closest('[data-add],[data-del]');if(!b)return;const a=b.dataset.add,d=b.dataset.del;
+ if(a){S[a].push({});renderDyn(a)}else{S[d].splice(+b.dataset.i,1);renderDyn(d)}dirty=true;status('มีการแก้ไขที่ยังไม่บันทึก','warn');refresh()});
+
+/* ---------- live figures ---------- */
+function totals(){let sA=0,sB=0,sSt=0;G.forEach((g,i)=>{const r=S.grades[i]||{};if(r.open){const A=num(cfg.A[i]);sA+=A;sB+=Math.min(num(r.B),A);sSt+=num(r.students)}});return{sA,sB,sSt,p:sA?sB/sA*100:0}}
 function refresh(){
- let sA=0,sB=0,sSt=0;G.forEach((g,i)=>{const r=S.grades[i]||{},c=document.getElementById('pc'+i);if(r.open){const A=num(cfg.A[i]),B=Math.min(num(r.B),A);sA+=A;sB+=B;sSt+=num(r.students);c.textContent=A?fmt(B/A*100,2):'–'}else c.textContent='–'});
- $('#sumA').textContent=fmt(sA);$('#sumB').textContent=fmt(sB);$('#sumSt').textContent=fmt(sSt);const p=sA?sB/sA*100:0;$('#sumP').textContent=sA?fmt(p,2):'–';
- const r=evalSchool(S,cfg);EQ.forEach(([k])=>$('#gap-'+k).textContent=fmt(r.gap[k]));
- $('#mainSecs').classList.toggle('hide',S.use==='c');$('#useB').classList.toggle('hide',S.use!=='b');
- $('#fstat').innerHTML=`<b>% การใช้ DLTV</b><br><span style="font-size:28px;font-family:'Noto Serif Thai',serif">${sA?fmt(p,2):'–'}</span><br>${r.group?`กลุ่ม ${r.group}`:sA?'ต่ำกว่าเกณฑ์':''}<br><span class="muted">สถานะ: ${S.status==='submitted'?'ส่งแล้ว':'ฉบับร่าง'}</span>`;
-}
-function schedule(){$('#saveSt').textContent='มีการแก้ไขที่ยังไม่บันทึก กด "บันทึกร่าง" ก่อนปิดหน้านี้'}
-const API=(window.DLTV_CONFIG&&window.DLTV_CONFIG.API_URL)||'';
-async function run(action,...args){
- if(!API||/XXXX/.test(API))throw new Error('ยังไม่ได้ตั้งค่า API_URL ในไฟล์ config.js');
- const ctl=new AbortController(),t=setTimeout(()=>ctl.abort(),45000);
- try{const r=await fetch(API,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,args}),signal:ctl.signal,redirect:'follow'});
-  if(!r.ok)throw new Error('เซิร์ฟเวอร์ตอบกลับ '+r.status);const j=await r.json();if(!j.ok)throw new Error(j.error||'เกิดข้อผิดพลาด');return j.data}
- catch(e){if(e.name==='AbortError')throw new Error('เชื่อมต่อนานเกินไป กรุณาลองใหม่');if(e instanceof TypeError)throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต');throw e}
- finally{clearTimeout(t)}}
-let saving=false;
-async function save(status){if(saving)return false;saving=true;$('#saveSt').textContent='กำลังบันทึก…';
- try{const r=await run('saveSurvey',JSON.parse(JSON.stringify(S)),status||'');S.status=r.status;S.updatedAt=r.updatedAt;if(S.coord&&S.coord[0]&&S.coord[0].tel)S._verify=S.coord[0].tel;
-  $('#saveSt').textContent='บันทึกแล้ว '+new Date().toLocaleTimeString('th-TH');refresh();return true}
- catch(e){$('#saveSt').textContent='บันทึกไม่สำเร็จ: '+(e&&e.message||e);return false}finally{saving=false}}
-function validate(){const m=[];const q=(c,t)=>{if(!c)m.push(t)};
- q(/^\d{10}$/.test(String(S.code||'')),'รหัสโรงเรียน 10 หลัก');q(S.name,'ชื่อโรงเรียน');q(S.province,'จังหวัด');q(S.affil,'สังกัด');q(S.coord?.[0]?.name,'ชื่อผู้ประสานงานคนที่ 1');q(S.coord?.[0]?.tel,'มือถือผู้ประสานงานคนที่ 1');q(S.use,'สถานะการใช้ DLTV (2.1)');
- if(S.use&&S.use!=='c'){q(S.sched,'รูปแบบตารางสอน (2.3)');q(S.road,'พื้นผิวถนน');q(S.vehicle,'พาหนะที่เข้าถึงได้');q(S.elec,'สถานะไฟฟ้า');q(S.net,'อินเทอร์เน็ต');q(S.director,'ผู้บริหารสถานศึกษา');q(S.teachers!==''&&S.teachers!=null,'จำนวนครูผู้สอน');
-  const og=S.grades.map((g,i)=>[g,i]).filter(([g])=>g.open);q(og.length,'ชั้นที่เปิดสอนอย่างน้อย 1 ชั้น');og.forEach(([g,i])=>{q(g.B!==''&&g.B!=null,`คาบที่ใช้จริง (B) ชั้น ${G[i]}`);q(g.students,`จำนวนนักเรียนชั้น ${G[i]}`)});
-  q(S.timetableLink,'ลิงก์ตารางสอน (4.3)');q(S.rooms.some(r=>r.tv),'ข้อมูลห้องเรียนอย่างน้อย 1 ห้อง พร้อมสภาพทีวี');q(S.buildings.some(b=>b.dish),'สภาพจานดาวเทียมอย่างน้อย 1 อาคาร');
-  if(S.use==='b')q(S.evidence,'ลิงก์รูปอุปกรณ์ที่ชำรุด (กรณีข้อ 2.1 ข.)')}
- q(S.cert?.agree,'ติ๊กรับรองข้อมูล');q(S.cert?.director,'ชื่อผู้อำนวยการผู้รับรอง');return m}
-$('#sv').addEventListener('click',e=>{if(e.target.id==='bSave')save();if(e.target.id==='bSubmit')submit()});
-const submit=async()=>{const m=validate(),v=$('#vmsg');if(m.length){v.classList.remove('hide');v.innerHTML='<b>ยังขาดข้อมูล:</b><ul>'+m.map(x=>`<li>${esc(x)}</li>`).join('')+'</ul>';v.scrollIntoView({block:'center'});return}
- v.classList.add('hide');if(await save('submitted')){refresh();toast('ส่งแบบสำรวจแล้ว');$('#vmsg').classList.remove('hide');$('#vmsg').style.background='#e5f4e4';$('#vmsg').innerHTML='<b>ส่งแบบสำรวจเรียบร้อย</b><br>หากต้องการแก้ไขภายหลัง ใช้รหัสโรงเรียน <b>'+esc(S.code)+'</b> และเบอร์มือถือผู้ประสานงานคนที่ 1 โหลดข้อมูลเดิมที่ด้านบนของหน้า'}};
+ const t=totals();
+ G.forEach((g,i)=>{const r=S.grades[i]||{},c=document.getElementById('pc'+i);if(!c)return;const A=num(cfg.A[i]);c.textContent=r.open&&A?fmt(Math.min(num(r.B),A)/A*100,2):'–';c.closest('tr').classList.toggle('off',!r.open)});
+ if($('#sumA')){$('#sumA').textContent=fmt(t.sA);$('#sumB').textContent=fmt(t.sB);$('#sumSt').textContent=fmt(t.sSt);$('#sumP').textContent=t.sA?fmt(t.p,2):'–'}
+ const r=evalSchool(S,cfg);EQ.forEach(([k])=>{const el=$('#gap-'+k);if(el)el.textContent=fmt(r.gap[k])});
+ $('#useB')?.classList.toggle('hide',S.use!=='b');$('#useC')?.classList.toggle('hide',S.use!=='c');
+ $('#netBox')?.classList.toggle('hide',S.net==='none');$('#histBox')?.classList.toggle('hide',!!S.neverReceived);
+ // ring
+ const pct=t.sA?t.p:0,C=2*Math.PI*52;$('#ringFg').style.strokeDashoffset=String(C*(1-pct/100));
+ $('#ringV').textContent=t.sA?fmt(pct,pct===100?0:1):'–';
+ $('#ringG').textContent=S.use==='c'?'ไม่ใช้ DLTV':!t.sA?'ยังไม่ได้กรอกขั้นที่ 4':r.group?`กลุ่ม ${r.group}`:`ต่ำกว่า ${cfg.bands[4]}%`;
+ $('#ringG').className='chip '+(r.group===1?'gold':r.group?'':'warn');
+ $('#gapList').innerHTML=EQ.map(([k,l,u])=>`<li><span>${l}</span><b>${fmt(r.gap[k])}</b></li>`).join('');
+ $('#mPct').textContent=t.sA?fmt(pct,1)+'%':'–';
+ $('#stState').textContent=S.status==='submitted'?'ส่งแล้ว':'ฉบับร่าง';$('#stState').className='chip '+(S.status==='submitted'?'ok':'');
+ if(cur==='s9')renderReview();
+ renderRailMarks()}
 
+/* ---------- validation ---------- */
+function issues(){const m=[];const q=(c,sec,t,k)=>{if(!c)m.push({sec,t,k})};
+ q(/^\d{10}$/.test(String(S.code||'')),'s1','รหัสโรงเรียน 10 หลัก','code');q(S.name,'s1','ชื่อโรงเรียน','name');q(S.province,'s1','จังหวัด','province');q(S.affil,'s1','สังกัด','affil');
+ q(S.coord?.[0]?.name,'s1','ชื่อผู้ประสานงานคนที่ 1','coord.0.name');q(String(S.coord?.[0]?.tel||'').replace(/\D/g,'').length>=9,'s1','มือถือผู้ประสานงานคนที่ 1','coord.0.tel');
+ q(S.use,'s2','สถานะการใช้ DLTV (2.1)','use');
+ if(S.use&&S.use!=='c'){q(S.sched,'s2','รูปแบบตารางสอน (2.3)','sched');
+  q(S.road,'s3','พื้นผิวถนน','road');q(S.vehicle,'s3','พาหนะที่เข้าถึงได้','vehicle');q(S.elec,'s3','สถานะไฟฟ้า','elec');q(S.net,'s3','อินเทอร์เน็ต','net');q(S.director,'s3','ผู้บริหารสถานศึกษา','director');q(S.teachers!==''&&S.teachers!=null,'s3','จำนวนครูผู้สอน','teachers');
+  const og=S.grades.map((g,i)=>[g,i]).filter(([g])=>g.open);q(og.length,'s4','ติ๊กชั้นที่เปิดสอนอย่างน้อย 1 ชั้น','grades.0.open');
+  og.forEach(([g,i])=>{q(g.B!==''&&g.B!=null,'s4',`คาบที่ใช้จริง (B) ชั้น ${G[i]}`,`grades.${i}.B`);q(g.students,'s4',`จำนวนนักเรียนชั้น ${G[i]}`,`grades.${i}.students`)});
+  q(S.timetableLink,'s4','ลิงก์ตารางสอน (4.3)','timetableLink');
+  q(S.rooms.some(r=>r.tv),'s5','ข้อมูลห้องเรียนอย่างน้อย 1 ห้อง พร้อมสภาพทีวี','rooms.0.tv');
+  q(S.buildings.some(b=>b.dish),'s6','สภาพจานดาวเทียมอย่างน้อย 1 อาคาร','buildings.0.dish');
+  if(S.use==='b')q(S.evidence,'s8','ลิงก์รูปอุปกรณ์ที่ชำรุด (กรณีข้อ 2.1 ข.)','evidence')}
+ q(S.cert?.agree,'s9','ติ๊กรับรองข้อมูล','cert.agree');q(S.cert?.director,'s9','ชื่อผู้อำนวยการผู้รับรอง','cert.director');return m}
+function markInvalid(list){$$('.invalid').forEach(e=>e.classList.remove('invalid'));list.filter(x=>tried[x.sec]).forEach(x=>{const el=document.querySelector(`[data-k="${x.k}"]`);if(!el)return;if(el.type==='radio'){el.closest('fieldset')?.classList.add('invalid')}else el.classList.add('invalid')})}
+function renderReview(){const m=issues(),box=$('#review'),vs=visible();const by={};m.forEach(x=>(by[x.sec]=by[x.sec]||[]).push(x));
+ const t=totals(),r=evalSchool(S,cfg);
+ box.innerHTML=`<div class="sum"><div><span class="muted small">โรงเรียน</span><b>${esc(S.name||'–')}</b><span class="muted small">${esc(S.code||'')}</span></div><div><span class="muted small">% การใช้ DLTV</span><b>${S.use==='c'?'–':t.sA?fmt(t.p,2)+'%':'–'}</b><span class="muted small">${r.group?'กลุ่ม '+r.group:''}</span></div><div><span class="muted small">ห้องเรียน</span><b>${fmt(r.rooms)}</b><span class="muted small">ห้อง</span></div></div>
+ ${m.length?`<div class="panel warn"><b>ยังขาดข้อมูล ${m.length} รายการ</b>${vs.filter(s=>by[s]).map(s=>{const st=STEPS.find(x=>x[0]===s);return`<div class="rv"><button type="button" class="btn sm" data-go="${s}">ขั้นที่ ${STEPS.indexOf(st)+1} ${st[1]}</button><ul>${by[s].map(x=>`<li>${esc(x.t)}</li>`).join('')}</ul></div>`}).join('')}</div>`:`<div class="panel ok"><b>ข้อมูลครบถ้วน</b> ตรวจทานแล้วกด "ส่งแบบสำรวจ" ได้เลย</div>`}`}
+$('#sv').addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)go(g.dataset.go)});
 
-/* ---------- criteria engine ---------- */
-function evalSchool(s,c){
- const A=c.A,w=c.w,ref=num(c.refYear)||2569,flags=[],why=[];
- let sA=0,sB=0,open=0;(s.grades||[]).forEach((g,i)=>{if(!g?.open)return;open++;const a=num(A[i]),b=num(g.B);if(b>a)flags.push(`${G[i]} กรอก B เกิน A`);sA+=a;sB+=Math.min(b,a);
-  const sj=s.subj?.[i];if(a&&b>=a&&sj&&Object.values(sj).some(x=>x==='◐'||x==='✗'))flags.push(`${G[i]} B เต็มแต่รายวิชาไม่ครบ`)});
- const full=sA>0&&sB===sA,pct=sA?sB/sA*100:0,bd=c.bands;
- const group=full?1:pct>=bd[1]?2:pct>=bd[2]?3:pct>=bd[3]?4:pct>=bd[4]?5:0;
- const rooms=(s.rooms||[]).filter(r=>r&&(r.tv||r.grades||r.students)),blds=s.buildings||[];
- const dishBad=r=>{const b=blds[num(r.bld)-1];return b&&(b.dish==='broken'||b.dish==='none')};
- const miss=rooms.filter(r=>r.tv==='broken'||r.tv==='none'||dishBad(r));
- const fRoom=rooms.length?miss.length/rooms.length:0;
- const ages=rooms.filter(r=>r.tv&&r.tv!=='none'&&num(r.year)>2400).map(r=>ref-num(r.year));const age=ages.length?ages.reduce((a,b)=>a+b,0)/ages.length:null;
- const fAge=age==null?0:age>=10?1:age>=7?2/3:age>=4?1/3:0;
- const fAcc=Math.max(s.vehicle==='moto'||s.vehicle==='boat'?1:0,s.vehicle==='4wd'?2/3:0,s.road==='laterite'||s.road==='dirt'?1/3:0);
- const fNet=s.net==='none'?1:(s.netQual==='some'||s.netQual==='no')?.5:0;
- const hy=(s.history||[]).map(h=>num(h.year)).filter(y=>y>2400),last=hy.length?Math.max(...hy):null;
- const fHist=s.neverReceived||last==null?1:ref-last>3?.5:0;
- const fTeach=open&&s.teachers!==''&&s.teachers!=null&&num(s.teachers)<open?1:0;
- const parts={room:fRoom*w.room,age:fAge*w.age,access:fAcc*w.access,net:fNet*w.net,hist:fHist*w.hist,teach:fTeach*w.teach};
- const score=Object.values(parts).reduce((a,b)=>a+b,0);
- const tv=rooms.filter(r=>r.tv==='broken'||r.tv==='none').length;
- const stand=tv+rooms.filter(r=>(r.tv==='ok'||r.tv==='repair')&&(r.stand==='broken'||r.stand==='none')).length;
- const dish=blds.filter(b=>b&&(b.dish==='broken'||b.dish==='none')).length;
- const own=(s.pcs||[]).filter(p=>p.owner==='school'&&p.cond==='ok').length;
- const nb=Math.max(0,Math.ceil(rooms.length/(num(c.nbPer)||4))-own);
- const gap={tv,stand,dish,nb},need={};EQ.forEach(([k])=>{const r=s.req?.[k];need[k]=r!==''&&r!=null&&num(r)>=0&&num(r)<gap[k]?num(r):gap[k]});
- if(s.status!=='submitted')why.push('ยังไม่ส่งแบบสำรวจ');
- if(!(s.use==='a'||s.use==='b'))why.push('ไม่ได้ใช้ DLTV');
- if(s.elec!=='yes'&&s.use!=='c')why.push('ไม่มีไฟฟ้า (ส่งต่อจัดหาไฟฟ้า)');
- if(!(s.cert?.agree&&s.cert?.director))why.push('ผู้อำนวยการยังไม่รับรอง');
- if(s.use!=='c'&&!group)why.push(`ใช้ DLTV ต่ำกว่า ${bd[4]}%`);
- if(s.use!=='c'&&!Object.values(need).some(v=>v>0))why.push('ไม่ขาดอุปกรณ์');
- if(s.use==='b')flags.push('หยุดใช้เพราะอุปกรณ์ชำรุด ต้องตรวจสอบ');
- if(s.use!=='c'&&!s.timetableLink)flags.push('ไม่มีลิงก์ตารางสอน');
- if(miss.length&&!s.evidence)flags.push('ไม่มีรูปหลักฐานอุปกรณ์ชำรุด');
- const affected=miss.reduce((a,r)=>a+num(r.students),0);
- return{pct,full,group,score,parts,gap,need,eligible:!why.length,why,flags,affected,rooms:rooms.length,open,age}}
-function analyze(list,c){
- const rows=list.map(s=>({s,...evalSchool(s,c)}));
- const el=rows.filter(r=>r.eligible).sort((a,b)=>a.group-b.group||b.score-a.score||b.pct-a.pct||b.affected-a.affected||num(b.s.years)-num(a.s.years)||num(a.s.updatedAt)-num(b.s.updatedAt));
- el.forEach((r,i)=>{r.rank=i+1;r.alloc={}});const rem={},stockSet={};
- EQ.forEach(([k])=>{const st=c.stock?.[k];stockSet[k]=st!==''&&st!=null;rem[k]=stockSet[k]?num(st):Infinity;el.forEach(r=>{const g=Math.min(r.need[k],rem[k]);r.alloc[k]=g;rem[k]-=g})});
- return{rows,el,rem,stockSet}}
+/* ---------- steps ---------- */
+const visible=()=>S.use==='c'?['s1','s2','s9']:STEPS.map(s=>s[0]);
+function renderRail(){const vs=visible();
+ $('#rail').innerHTML=STEPS.map(([id,t],i)=>`<li class="${vs.includes(id)?'':'skip'}"><button type="button" data-step="${id}" ${vs.includes(id)?'':'disabled'}><span class="dot">${i+1}</span><span class="lbl">${t}</span></button></li>`).join('');renderRailMarks()}
+function renderRailMarks(){const m=issues(),cnt={};m.forEach(x=>cnt[x.sec]=(cnt[x.sec]||0)+1);
+ $$('#rail button').forEach(b=>{const id=b.dataset.step;b.classList.toggle('on',id===cur);b.classList.toggle('done',!!tried[id]&&!cnt[id]);b.classList.toggle('bad',!!tried[id]&&!!cnt[id]);b.title=cnt[id]?`ขาด ${cnt[id]} รายการ`:''});
+ const vs=visible(),i=vs.indexOf(cur);$('#prog i').style.width=((i+1)/vs.length*100)+'%';$('#stepNo').textContent=`ขั้นที่ ${i+1} จาก ${vs.length}`;
+ $('#prev').disabled=i<=0;$('#next').classList.toggle('hide',i===vs.length-1);$('#submit').classList.toggle('hide',i!==vs.length-1);markInvalid(m)}
+$('#rail').addEventListener('click',e=>{const b=e.target.closest('button[data-step]');if(b&&!b.disabled)go(b.dataset.step)});
+function go(id){const vs=visible();if(!vs.includes(id))id='s9';if(id===cur)return;const dir=vs.indexOf(id)>vs.indexOf(cur)?'inR':'inL';tried[cur]=true;
+ const was=cur;cur=id;$$('.step').forEach(s=>{const on=s.dataset.step===id;s.classList.toggle('on',on);if(on){s.style.animation='none';void s.offsetWidth;s.style.animation=`${dir} .38s var(--ease) both`}});
+ refresh();const top=$('#stage').getBoundingClientRect().top+scrollY-80;if(scrollY>top)scrollTo({top,behavior:'smooth'});
+ if(dirty&&/^\d{10}$/.test(String(S.code||''))&&was!==id)save('',true)}
+$('#prev').onclick=()=>{const vs=visible();go(vs[Math.max(0,vs.indexOf(cur)-1)])};
+$('#next').onclick=()=>{const vs=visible();go(vs[Math.min(vs.length-1,vs.indexOf(cur)+1)])};
+document.addEventListener('keydown',e=>{if(e.altKey&&e.key==='ArrowRight')$('#next').click();if(e.altKey&&e.key==='ArrowLeft')$('#prev').click()});
 
+/* ---------- save / submit / load ---------- */
+function status(t,kind=''){const el=$('#saveSt');el.textContent=t;el.className='st '+kind}
+async function save(st,silent){if(saving)return false;
+ if(!/^\d{10}$/.test(String(S.code||''))){if(!silent){toast('กรอกรหัสโรงเรียน 10 หลักก่อนบันทึก','bad');go('s1');tried.s1=true;refresh()}return false}
+ saving=true;const btn=$('#saveBtn');if(!silent)btnBusy(btn,true,'กำลังบันทึก');status('กำลังบันทึก…');
+ try{const payload=JSON.parse(JSON.stringify(S));payload._verify=verifyTel;const r=await api('saveSurvey',payload,st||'');
+  S.status=r.status;S.updatedAt=r.updatedAt;verifyTel=S.coord?.[0]?.tel||verifyTel;dirty=false;
+  status('บันทึกแล้ว '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}),'ok');if(!silent&&!st)toast('บันทึกร่างแล้ว','ok');refresh();return true}
+ catch(e){status('บันทึกไม่สำเร็จ','bad');toast(e.message||String(e),'bad');return false}
+ finally{saving=false;if(!silent)btnBusy(btn,false)}}
+$('#saveBtn').onclick=()=>save();
+$('#submit').onclick=async()=>{visible().forEach(s=>tried[s]=true);const m=issues();
+ if(m.length){refresh();const first=visible().find(s=>m.some(x=>x.sec===s));toast(`ยังขาดข้อมูล ${m.length} รายการ`,'bad');if(first&&first!==cur)go(first);return}
+ const b=$('#submit');btnBusy(b,true,'กำลังส่ง');const ok=await save('submitted',true);btnBusy(b,false);
+ if(ok)showDone()};
+function showDone(){const t=totals(),r=evalSchool(S,cfg);
+ $('#doneBody').innerHTML=`<p>ระบบได้รับแบบสำรวจของ <b>${esc(S.name||'')}</b> แล้ว</p>
+ <div class="sum"><div><span class="muted small">% การใช้ DLTV</span><b>${S.use==='c'?'–':fmt(t.p,2)+'%'}</b></div><div><span class="muted small">กลุ่ม</span><b>${r.group||'–'}</b></div><div><span class="muted small">ส่งเมื่อ</span><b>${new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}</b></div></div>
+ <div class="panel small">แก้ไขข้อมูลได้จนถึงวันปิดรับ โดยใช้ <b>รหัสโรงเรียน ${esc(S.code)}</b> และ <b>เบอร์มือถือผู้ประสานงานคนที่ 1</b> ที่ช่อง "แก้ไขข้อมูลที่เคยกรอก" ด้านบน</div>`;
+ $('#done').classList.remove('hide');$('#done .check').classList.remove('anim');void $('#done').offsetWidth;$('#done .check').classList.add('anim');$('#closeDone').focus()}
+$('#closeDone').onclick=()=>$('#done').classList.add('hide');
+$('#done').addEventListener('click',e=>{if(e.target.id==='done')$('#done').classList.add('hide')});
+$('#lBtn').onclick=async()=>{const c=$('#lCode').value.trim(),t=$('#lTel').value.trim(),m=$('#lMsg');
+ if(!/^\d{10}$/.test(c)||t.replace(/\D/g,'').length<9){m.textContent='กรอกรหัสโรงเรียน 10 หลัก และเบอร์มือถือ';m.className='small bad';return}
+ btnBusy($('#lBtn'),true,'กำลังค้นหา');m.textContent='';
+ try{const d=await api('getSurvey',c,t);if(!d){m.textContent='ไม่พบข้อมูล หรือเบอร์มือถือไม่ตรงกับที่บันทึกไว้';m.className='small bad';return}
+  S=Object.assign(blank(),d);verifyTel=t;dirty=false;tried={};cur='s1';renderForm();m.textContent='';status('โหลดข้อมูลเดิมแล้ว','ok');
+  toast('โหลดข้อมูลเดิมแล้ว ('+(S.status==='submitted'?'ส่งแล้ว':'ฉบับร่าง')+')','ok');$('#edit').open=false;$('#stage').scrollIntoView({behavior:'smooth'})}
+ catch(e){m.textContent=e.message||String(e);m.className='small bad'}finally{btnBusy($('#lBtn'),false)}};
+window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 
-
-$('#lBtn').onclick=async()=>{const c=$('#lCode').value.trim(),t=$('#lTel').value.trim(),m=$('#lMsg');if(!c||!t){m.textContent='กรอกรหัสโรงเรียนและเบอร์มือถือ';return}
- m.textContent='กำลังค้นหา…';try{const d=await run('getSurvey',c,t);if(!d){m.textContent='ไม่พบข้อมูล หรือเบอร์มือถือไม่ตรงกับที่บันทึกไว้';return}
- S=Object.assign(blank(),d);S._verify=t;renderForm();m.textContent='โหลดข้อมูลเดิมแล้ว ('+(S.status==='submitted'?'ส่งแล้ว':'ฉบับร่าง')+')'}catch(e){m.textContent='ผิดพลาด: '+(e&&e.message||e)}};
-renderForm();
-run('getConfig').then(c=>{cfg=Object.assign(JSON.parse(JSON.stringify(DEF)),c);renderForm();
- if(c.deadline){const m=$('#dbmsg');m.classList.remove('hide');m.textContent='ปิดรับแบบสำรวจวันที่ '+new Date(c.deadline+'T00:00:00').toLocaleDateString('th-TH',{dateStyle:'long'})}}).catch(e=>{const m=$('#dbmsg');m.classList.remove('hide');m.classList.add('err');m.textContent='โหลดเกณฑ์จากเซิร์ฟเวอร์ไม่ได้: '+(e&&e.message||e)+' (ยังกรอกได้ แต่ % ที่แสดงอาจไม่ตรง)'});
-window.addEventListener('beforeunload',e=>{if(/ยังไม่บันทึก/.test($('#saveSt').textContent)){e.preventDefault();e.returnValue=''}});
-
+/* ---------- boot ---------- */
+mountLogos();$('#heroArt').innerHTML=WAVES;renderForm();
+api('getConfig').then(c=>{cfg=Object.assign(JSON.parse(JSON.stringify(DEF)),c);renderForm();
+ if(c.deadline){const d=new Date(c.deadline+'T00:00:00');$('#deadline').textContent='ปิดรับ '+d.toLocaleDateString('th-TH',{dateStyle:'long'});$('#deadline').classList.remove('hide');if(Date.now()>d.getTime()+86400000){$('#closed').classList.remove('hide')}}})
+ .catch(e=>{const m=$('#cfgErr');m.classList.remove('hide');m.textContent='เชื่อมต่อเซิร์ฟเวอร์ไม่ได้: '+(e.message||e)+' (กรอกได้ แต่ยังบันทึกไม่ได้จนกว่าจะเชื่อมต่อได้)'});
 }

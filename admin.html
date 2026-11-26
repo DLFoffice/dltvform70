@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ผู้ดูแล — ระบบจัดสรรอุปกรณ์ DLTV</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/theme.css">
+<link rel="stylesheet" href="assets/admin.css">
+</head>
+<body>
+<div id="loginView" class="login">
+  <div id="loginArt"></div>
+  <div class="card">
+    <div class="logos"></div>
+    <h1>ระบบผู้ดูแล</h1>
+    <p class="muted">Dashboard สรุปผลการสำรวจและการจัดสรรอุปกรณ์ DLTV 2570</p>
+    <form id="loginForm">
+      <label class="f"><span>รหัส Admin</span><input type="password" id="pw" autocomplete="current-password" required></label>
+      <button class="btn pri" type="submit" id="loginBtn">เข้าสู่ระบบ</button>
+      <div id="loginMsg" class="small" style="color:var(--bad);min-height:1.5em"></div>
+    </form>
+  </div>
+</div>
+
+<div id="appView" class="hide">
+  <div class="topbar"><div class="in">
+    <div class="logos"></div>
+    <div class="brandtxt"><b>ระบบผู้ดูแล DLTV 2570</b><span>สรุปผลการสำรวจและการจัดสรรอุปกรณ์</span></div>
+    <span class="sp"></span>
+    <button class="btn sm ghost" id="logout" type="button">ออกจากระบบ</button>
+  </div></div>
+  <div class="wrapA">
+    <div class="head">
+      <div class="t"><h1 id="headline">กำลังโหลดข้อมูล…</h1><div class="muted small" id="asof"></div></div>
+      <div class="acts">
+        <button class="btn" id="refresh" type="button">↻ รีเฟรช</button>
+        <button class="btn" id="xlsx" type="button">ส่งออก Excel</button>
+        <button class="btn pri" id="pdf" type="button">ส่งออก PDF</button>
+      </div>
+    </div>
+    <div class="filters" id="filters">
+      <label>ค้นหา<input id="fQ" type="text" placeholder="ชื่อหรือรหัสโรงเรียน"></label>
+      <label>จังหวัด<select id="fPv"></select></label>
+      <label>สังกัด<select id="fAf"><option value="">ทุกสังกัด</option><option value="obec">สพฐ.</option><option value="bpp">ตชด.</option><option value="lao">อปท.</option><option value="private">เอกชน</option><option value="other">อื่น ๆ</option></select></label>
+      <label>กลุ่ม % การใช้<select id="fG"><option value="">ทุกกลุ่ม</option><option value="1">กลุ่ม 1</option><option value="2">กลุ่ม 2</option><option value="3">กลุ่ม 3</option><option value="4">กลุ่ม 4</option><option value="5">กลุ่ม 5</option><option value="0">ต่ำกว่าเกณฑ์</option></select></label>
+      <label>สถานะ<select id="fSt"><option value="">ทั้งหมด</option><option value="el">ผ่านเกณฑ์</option><option value="no">ไม่ผ่านเกณฑ์</option><option value="flag">ต้องตรวจสอบ</option><option value="draft">ฉบับร่าง</option></select></label>
+      <button class="btn sm" id="fClear" type="button">ล้างตัวกรอง</button>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="cols">
+      <div class="card"><h2>โรงเรียนที่ผ่านเกณฑ์ แยกตามกลุ่ม</h2><p class="cap">กลุ่มที่สูงกว่าได้รับการจัดสรรก่อนเสมอ</p><div id="cGroups"></div></div>
+      <div class="card"><h2>ความต้องการเทียบกับที่จัดสรรได้</h2><p class="cap" id="eqCap"></p><div id="cEq"></div>
+        <div class="legend"><span><i style="background:var(--brand)"></i>จัดสรรได้</span><span><i style="background:var(--brand-50)"></i>ความต้องการ</span><span><i style="background:var(--gold)"></i>งบที่ตั้งไว้</span></div></div>
+      <div class="card"><h2>สถานะแบบสำรวจ</h2><p class="cap">ทุกแบบสำรวจตามตัวกรอง</p><div id="cStatus" class="donut"></div></div>
+      <div class="card"><h2>เหตุผลที่ไม่ผ่านคุณสมบัติ</h2><p class="cap">โรงเรียนหนึ่งอาจมีมากกว่า 1 เหตุผล</p><div id="cWhy"></div></div>
+    </div>
+    <div class="card" style="margin-bottom:18px"><h2>สรุปรายจังหวัด</h2><p class="cap">จำนวนอุปกรณ์ที่จัดสรรได้ ตามลำดับทั้งประเทศ</p><div class="tbl-wrap" id="cProv"></div></div>
+    <div class="card"><h2>บัญชีจัดลำดับการจัดสรร</h2><p class="cap">ลำดับและจำนวนที่ได้รับคำนวณจากข้อมูลทั้งหมด ตัวกรองมีผลแค่การแสดงผล · กดแถวเพื่อดูรายละเอียด</p>
+      <div class="tbl-wrap" id="ledger"></div><div class="pager" id="pager"></div></div>
+  </div>
+</div>
+<div id="report" aria-hidden="true"></div>
+
+<script src="config.js"></script>
+<script src="common.js"></script>
+<script src="engine.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
