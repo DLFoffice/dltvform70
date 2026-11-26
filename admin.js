@@ -3,7 +3,7 @@
 const AF={obec:'สพฐ.',bpp:'ตชด.',lao:'อปท.',private:'เอกชน',other:'อื่น ๆ'};
 const USE={a:'ใช้',b:'หยุดใช้ (อุปกรณ์ชำรุด)',c:'ไม่ใช้'};
 const PARTS=[['room','ห้องที่ขาดอุปกรณ์'],['age','อายุทีวีเฉลี่ย'],['access','ความห่างไกล'],['net','อินเทอร์เน็ต'],['hist','ประวัติการได้รับ'],['teach','ครูไม่ครบชั้น']];
-const LIB={xlsx:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js',pdf:'https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js'};
+const LIB={xlsx:'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'};
 let token=null,D=null,F={q:'',pv:'',af:'',g:'',st:''},sortK='rank',sortD=1,page=0;const PER=25;
 try{token=sessionStorage.getItem('dltv_admin')}catch{}
 
@@ -81,7 +81,7 @@ function detail(code){const r=D.rows.find(x=>String(x.code)===code);if(!r)return
  d.addEventListener('click',e=>{if(e.target===d||e.target.closest('[data-x]'))close()});document.addEventListener('keydown',esc_);document.body.append(d);grow(d);d.querySelector('[data-x]').focus()}
 
 /* ---------- exports ---------- */
-function loadLib(src){return new Promise((res,rej)=>{if(document.querySelector(`script[src="${src}"]`)&&(window.XLSX||window.html2pdf))return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('โหลดไลบรารีสำหรับส่งออกไม่ได้ ตรวจสอบอินเทอร์เน็ต'));document.head.append(s)})}
+function loadLib(src){return new Promise((res,rej)=>{if(window.XLSX)return res();const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('โหลดไลบรารีสำหรับส่งออกไม่ได้ ตรวจสอบอินเทอร์เน็ต'));document.head.append(s)})}
 const stamp=()=>{const d=new Date(),p=n=>String(n).padStart(2,'0');return`${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}`};
 function ordered(L){return[...L].sort((a,b)=>(a.rank??1e9)-(b.rank??1e9)||String(a.province).localeCompare(String(b.province),'th'))}
 $('#xlsx').onclick=async()=>{if(!D)return;const b=$('#xlsx');btnBusy(b,true,'กำลังสร้างไฟล์');
@@ -100,25 +100,56 @@ $('#xlsx').onclick=async()=>{if(!D)return;const b=$('#xlsx');btnBusy(b,true,'ก
   X.writeFile(wb,`DLTV-allocation-${stamp()}.xlsx`);toast('สร้างไฟล์ Excel แล้ว','ok')}
  catch(e){toast(e.message||String(e),'bad')}finally{btnBusy(b,false)}};
 
-function reportHTML(){const L=ordered(rows()),s=stats(L),el=L.filter(r=>r.eligible),top=el.slice(0,100),filtered=scope()!=='ทั้งหมด';
- const imgs=$$('.topbar .logos img').map(i=>`<img src="${esc(i.src)}" alt="" crossorigin="anonymous">`).join('');
- const mx=Math.max(...s.g,1);
- return`<div class="rpt"><div class="rh">${imgs}<div><h1>รายงานสรุปผลการสำรวจและการจัดสรรอุปกรณ์ DLTV ปีการศึกษา 2570</h1><div>มูลนิธิการศึกษาทางไกลผ่านดาวเทียม ในพระบรมราชูปถัมภ์</div><div style="color:#555">ข้อมูล ณ ${esc(new Date(D.generatedAt).toLocaleString('th-TH',{dateStyle:'long',timeStyle:'short'}))} · ขอบเขต: ${esc(scope())}</div></div></div>
- <section><h2>สาระสำคัญ</h2><p>${s.el?`มีโรงเรียนผ่านเกณฑ์ ${fmt(s.el)} แห่ง จากแบบสำรวจที่ส่งแล้ว ${fmt(s.sub)} ฉบับ ในจำนวนนี้ ${fmt(s.g[0])} แห่งใช้ DLTV ครบ 100% และ ${s.full===s.el?'ทุกแห่งได้รับอุปกรณ์ครบตามที่ขาด':`${fmt(s.full)} แห่งได้รับอุปกรณ์ครบตามที่ขาด`}`:'ยังไม่มีโรงเรียนผ่านเกณฑ์'} ร้อยละการใช้ DLTV เฉลี่ยของโรงเรียนที่ส่งแบบสำรวจคือ ${fmt(s.avg,2)}%</p>
- <div class="rk"><div>แบบสำรวจทั้งหมด<b>${fmt(s.n)}</b></div><div>ส่งแล้ว<b>${fmt(s.sub)}</b></div><div>ผ่านคุณสมบัติ<b>${fmt(s.el)}</b></div><div>ใช้ DLTV 100%<b>${fmt(s.g[0])}</b></div><div>% การใช้เฉลี่ย<b>${fmt(s.avg,2)}</b></div><div>ต้องตรวจสอบ<b>${fmt(s.flag)}</b></div></div></section>
- <section><h2>โรงเรียนที่ผ่านเกณฑ์ แยกตามกลุ่ม % การใช้</h2>${s.g.map((v,i)=>`<div class="hb"><span>${i?`กลุ่ม ${i+1} (${D.cfg.bands[i]}%+)`:'กลุ่ม 1 (100%)'}</span><div class="t"><i class="${i?'':'gold'}" style="width:${v/mx*100}%"></i></div><span class="v">${fmt(v)}</span></div>`).join('')}</section>
- <section><h2>ความต้องการและการจัดสรรอุปกรณ์</h2><table><thead><tr><th>อุปกรณ์</th><th class="n">ความต้องการ</th><th class="n">จัดสรรได้</th><th class="n">งบที่ตั้งไว้</th><th class="n">ส่วนที่ขาด</th></tr></thead><tbody>${EQ.map(([k,l,u])=>{const st=D.cfg.stock[k];const has=st!==''&&st!=null&&!filtered;return`<tr><td>${l} (${u})</td><td class="n">${fmt(s.need[k])}</td><td class="n"><b>${fmt(s.got[k])}</b></td><td class="n">${has?fmt(st):filtered?'–':'ยังไม่กำหนด'}</td><td class="n">${fmt(s.need[k]-s.got[k])}</td></tr>`}).join('')}</tbody></table></section>
- <section><h2>เหตุผลที่ไม่ผ่านคุณสมบัติ</h2>${Object.keys(s.why).length?`<table><tbody>${Object.entries(s.why).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${fmt(v)} แห่ง</td></tr>`).join('')}</tbody></table>`:'<p>ทุกโรงเรียนผ่านคุณสมบัติ</p>'}</section>
+/* ---------- รายงาน PDF: สร้างเอกสาร A4 แล้วสั่งพิมพ์/บันทึกเป็น PDF ผ่านเบราว์เซอร์ (ภาษาไทยคมชัด ไม่เพี้ยน) ---------- */
+const REPORT_CSS=`@page{size:A4 portrait;margin:14mm 13mm 16mm}
+*{box-sizing:border-box}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{margin:0;font:11pt/1.55 "IBM Plex Sans Thai","Sarabun","Noto Sans Thai",sans-serif;color:#111}
+.rh{display:flex;align-items:center;gap:14px;border-bottom:2.5pt solid #1f3c88;padding-bottom:10px;margin-bottom:14px}
+.rh img{height:52px;width:auto}.rh .tt{flex:1}
+h1{font-size:16pt;margin:0;line-height:1.3}.sub{color:#444;font-size:10pt}
+h2{font-size:12.5pt;color:#1f3c88;margin:18px 0 8px;break-after:avoid;page-break-after:avoid}
+p{margin:4px 0}
+.lead{background:#eef3fc;border-left:4pt solid #f2b705;padding:10px 12px;border-radius:4px}
+.kp{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.kp div{border:1px solid #dfe5f0;border-radius:6px;padding:8px 10px;font-size:9.5pt;color:#444}
+.kp b{display:block;font-size:17pt;color:#111;line-height:1.2}
+table{width:100%;border-collapse:collapse;font-size:9.5pt}
+thead{display:table-header-group}tr{break-inside:avoid;page-break-inside:avoid}
+th{background:#1f3c88;color:#fff;font-weight:600;text-align:left;padding:5px 6px}
+td{border-bottom:1px solid #dfe5f0;padding:4px 6px;vertical-align:top}
+tbody tr:nth-child(even) td{background:#f7f9fd}
+.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bar{display:grid;grid-template-columns:130px 1fr 44px;gap:8px;align-items:center;margin:4px 0;font-size:10pt}
+.bar .t{height:12px;background:#eef3fc;border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:#1f3c88}.bar i.g{background:#f2b705}
+.blk{break-inside:avoid;page-break-inside:avoid}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.note{color:#555;font-size:9pt;margin-top:10px}
+.sign{display:flex;justify-content:flex-end;margin-top:36px;break-inside:avoid}.sign div{text-align:center;width:280px;line-height:2}`;
+function reportDoc(){const L=ordered(rows()),s=stats(L),el=L.filter(r=>r.eligible),top=el.slice(0,100),filtered=scope()!=='ทั้งหมด',mx=Math.max(...s.g,1);
+ const imgs=$$('.topbar .logos img').filter(i=>i.complete&&i.naturalWidth).map(i=>`<img src="${esc(i.src)}" alt="">`).join('');
+ const when=new Date(D.generatedAt).toLocaleString('th-TH',{dateStyle:'long',timeStyle:'short'});
+ const body=`<div class="rh">${imgs}<div class="tt"><h1>รายงานสรุปผลการสำรวจและการจัดสรรอุปกรณ์ DLTV ปีการศึกษา 2570</h1><div class="sub">มูลนิธิการศึกษาทางไกลผ่านดาวเทียม ในพระบรมราชูปถัมภ์</div><div class="sub">ข้อมูล ณ ${esc(when)} · ขอบเขต: ${esc(scope())}</div></div></div>
+ <div class="blk"><h2>สาระสำคัญ</h2><p class="lead">${s.el?`มีโรงเรียนผ่านเกณฑ์ <b>${fmt(s.el)}</b> แห่ง จากแบบสำรวจที่ส่งแล้ว ${fmt(s.sub)} ฉบับ ในจำนวนนี้ ${fmt(s.g[0])} แห่งใช้ DLTV ครบ 100% และ${s.full===s.el?'ทุกแห่งได้รับอุปกรณ์ครบตามที่ขาด':` ${fmt(s.full)} แห่งได้รับอุปกรณ์ครบตามที่ขาด`}`:`ยังไม่มีโรงเรียนผ่านเกณฑ์ จากแบบสำรวจที่ส่งแล้ว ${fmt(s.sub)} ฉบับ`} ร้อยละการใช้ DLTV เฉลี่ยของโรงเรียนที่ส่งแบบสำรวจคือ ${fmt(s.avg,2)}%</p>
+ <div class="kp"><div>แบบสำรวจทั้งหมด<b>${fmt(s.n)}</b></div><div>ส่งแล้ว<b>${fmt(s.sub)}</b></div><div>ผ่านคุณสมบัติ<b>${fmt(s.el)}</b></div><div>ใช้ DLTV 100%<b>${fmt(s.g[0])}</b></div><div>% การใช้เฉลี่ย<b>${fmt(s.avg,2)}</b></div><div>ต้องตรวจสอบ<b>${fmt(s.flag)}</b></div></div></div>
+ <div class="two"><div class="blk"><h2>โรงเรียนที่ผ่านเกณฑ์ตามกลุ่ม</h2>${s.g.map((v,i)=>`<div class="bar"><span>${i?`กลุ่ม ${i+1} (${D.cfg.bands[i]}%+)`:'กลุ่ม 1 (100%)'}</span><div class="t"><i class="${i?'':'g'}" style="width:${v/mx*100}%"></i></div><span class="n">${fmt(v)}</span></div>`).join('')}</div>
+ <div class="blk"><h2>เหตุผลที่ไม่ผ่านคุณสมบัติ</h2>${Object.keys(s.why).length?`<table><tbody>${Object.entries(s.why).sort((a,b)=>b[1]-a[1]).map(([k,v])=>`<tr><td>${esc(k)}</td><td class="n">${fmt(v)} แห่ง</td></tr>`).join('')}</tbody></table>`:'<p>ทุกโรงเรียนผ่านคุณสมบัติ</p>'}</div></div>
+ <div class="blk"><h2>ความต้องการและการจัดสรรอุปกรณ์</h2><table><thead><tr><th>อุปกรณ์</th><th class="n">ความต้องการ</th><th class="n">จัดสรรได้</th><th class="n">งบที่ตั้งไว้</th><th class="n">ส่วนที่ยังขาด</th></tr></thead><tbody>${EQ.map(([k,l,u])=>{const st=D.cfg.stock[k],has=st!==''&&st!=null;return`<tr><td>${l} (${u})</td><td class="n">${fmt(s.need[k])}</td><td class="n"><b>${fmt(s.got[k])}</b></td><td class="n">${filtered?'–':has?fmt(st):'ยังไม่กำหนด'}</td><td class="n">${fmt(s.need[k]-s.got[k])}</td></tr>`}).join('')}</tbody></table></div>
  <h2>สรุปรายจังหวัด</h2><table><thead><tr><th>จังหวัด</th><th class="n">ส่งแล้ว</th><th class="n">% เฉลี่ย</th><th class="n">ผ่านเกณฑ์</th>${EQ.map(([,l])=>`<th class="n">${l}</th>`).join('')}</tr></thead><tbody>${Object.entries(s.pv).sort((a,b)=>b[1].el-a[1].el).map(([p,o])=>`<tr><td>${esc(p)}</td><td class="n">${fmt(o.sub)}</td><td class="n">${o.sub?fmt(o.ps/o.sub,1):'–'}</td><td class="n">${fmt(o.el)}</td>${EQ.map(([k])=>`<td class="n">${fmt(o[k])}</td>`).join('')}</tr>`).join('')}</tbody></table>
- <h2>บัญชีจัดลำดับ ${top.length<el.length?`(${fmt(top.length)} ลำดับแรก จาก ${fmt(el.length)} · รายการทั้งหมดอยู่ในไฟล์ Excel)`:''}</h2><table><thead><tr><th class="n">ลำดับ</th><th>โรงเรียน</th><th>จังหวัด</th><th class="n">% ใช้</th><th class="n">กลุ่ม</th><th class="n">คะแนน</th>${EQ.map(([,l])=>`<th class="n">${l}</th>`).join('')}</tr></thead><tbody>${top.map(r=>`<tr><td class="n">${r.rank}</td><td>${esc(r.name)}</td><td>${esc(r.province||'')}</td><td class="n">${fmt(r.pct,2)}</td><td class="n">${r.group}</td><td class="n">${fmt(r.score,1)}</td>${EQ.map(([k])=>`<td class="n">${fmt(r.alloc?r.alloc[k]:0)}</td>`).join('')}</tr>`).join('')}</tbody></table>
- <p style="color:#555;margin-top:10px">เกณฑ์: จัดกลุ่มตามร้อยละการใช้ DLTV (กลุ่ม 1 = 100%) กลุ่มที่สูงกว่าได้รับก่อน ภายในกลุ่มเรียงตามคะแนนความจำเป็น 100 คะแนน (ห้องที่ขาดอุปกรณ์ ${D.cfg.w.room} · อายุทีวี ${D.cfg.w.age} · ความห่างไกล ${D.cfg.w.access} · อินเทอร์เน็ต ${D.cfg.w.net} · ประวัติการได้รับ ${D.cfg.w.hist} · ครูไม่ครบชั้น ${D.cfg.w.teach})</p>
- <div class="sign"><div>ลงชื่อ ....................................................<br>(....................................................)<br>ผู้รายงาน<br>วันที่ ........../........../..........</div></div></div>`}
-$('#pdf').onclick=async()=>{if(!D)return;const b=$('#pdf');btnBusy(b,true,'กำลังสร้าง PDF');const R=$('#report');
- try{if(!window.html2pdf)await loadLib(LIB.pdf);R.innerHTML=reportHTML();await document.fonts?.ready;
-  await window.html2pdf().set({margin:[10,10,12,10],filename:`DLTV-report-${stamp()}.pdf`,image:{type:'jpeg',quality:.95},html2canvas:{scale:2,useCORS:true,backgroundColor:'#ffffff',windowWidth:800},jsPDF:{unit:'mm',format:'a4',orientation:'portrait'},pagebreak:{mode:['css','legacy'],avoid:['tr','section','.rk','.sign']}}).from(R.firstElementChild).save();
-  toast('สร้างไฟล์ PDF แล้ว','ok')}
- catch(e){toast((e.message||String(e))+' — ลองใช้ Ctrl+P แล้วเลือก "บันทึกเป็น PDF" แทน','bad')}finally{btnBusy(b,false)}};
-window.addEventListener('beforeprint',()=>{if(D)$('#report').innerHTML=reportHTML()});
+ <h2>บัญชีจัดลำดับการจัดสรร${top.length<el.length?` (${fmt(top.length)} ลำดับแรกจาก ${fmt(el.length)} · รายการทั้งหมดอยู่ในไฟล์ Excel)`:''}</h2>${top.length?`<table><thead><tr><th class="n">ลำดับ</th><th>โรงเรียน</th><th>จังหวัด</th><th class="n">% ใช้</th><th class="n">กลุ่ม</th><th class="n">คะแนน</th>${EQ.map(([,l])=>`<th class="n">${l}</th>`).join('')}</tr></thead><tbody>${top.map(r=>`<tr><td class="n">${r.rank}</td><td>${esc(r.name)}</td><td>${esc(r.province||'')}</td><td class="n">${fmt(r.pct,2)}</td><td class="n">${r.group}</td><td class="n">${fmt(r.score,1)}</td>${EQ.map(([k])=>`<td class="n">${fmt(r.alloc?r.alloc[k]:0)}</td>`).join('')}</tr>`).join('')}</tbody></table>`:'<p>ยังไม่มีโรงเรียนผ่านเกณฑ์</p>'}
+ <p class="note">เกณฑ์: จัดกลุ่มตามร้อยละการใช้ DLTV (กลุ่ม 1 = 100%) กลุ่มที่สูงกว่าได้รับก่อน ภายในกลุ่มเรียงตามคะแนนความจำเป็น 100 คะแนน (ห้องที่ขาดอุปกรณ์ ${D.cfg.w.room} · อายุทีวี ${D.cfg.w.age} · ความห่างไกล ${D.cfg.w.access} · อินเทอร์เน็ต ${D.cfg.w.net} · ประวัติการได้รับ ${D.cfg.w.hist} · ครูไม่ครบชั้น ${D.cfg.w.teach})</p>
+ <div class="sign"><div>ลงชื่อ ..................................................<br>(..................................................)<br>ผู้รายงาน<br>วันที่ ........ / ........ / ........</div></div>`;
+ const title=`DLTV-report-${stamp()}`;
+ return{title,html:`<!DOCTYPE html><html lang="th"><head><meta charset="utf-8"><title>${title}</title><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;600;700&display=swap" rel="stylesheet"><style>${REPORT_CSS}</style></head><body>${body}</body></html>`}}
+window.DLTV_reportDoc=()=>D&&reportDoc();
+$('#pdf').onclick=async()=>{if(!D)return;const b=$('#pdf');btnBusy(b,true,'กำลังเตรียมรายงาน');
+ try{const {title,html}=reportDoc();$('#printFrame')?.remove();
+  const f=document.createElement('iframe');f.id='printFrame';f.title='รายงาน';f.style.cssText='position:fixed;right:0;bottom:0;width:0;height:0;border:0;visibility:hidden';document.body.append(f);
+  await new Promise(res=>{f.onload=res;f.srcdoc=html});const w=f.contentWindow;
+  try{await Promise.race([w.document.fonts.ready,new Promise(r=>setTimeout(r,2500))])}catch{}
+  await Promise.all([...w.document.images].map(i=>i.complete?0:new Promise(r=>{i.onload=i.onerror=r;setTimeout(r,2500)})));
+  const old=document.title;document.title=title;toast('เลือกปลายทาง "บันทึกเป็น PDF" แล้วกดบันทึก','ok');
+  w.focus();w.print();setTimeout(()=>{document.title=old},1500)}
+ catch(e){toast(e.message||String(e),'bad')}finally{btnBusy(b,false)}};
 
 /* ---------- boot ---------- */
 if(token)enter();else $('#pw').focus();

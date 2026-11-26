@@ -20,7 +20,7 @@
 .rail button.done .dot::after{content:"✓";font-size:14px}
 .rail button.bad .dot{border-color:var(--warn);color:var(--warn);background:var(--warn-50)}
 .rail button.on.bad .dot{background:var(--brand);color:#fff;border-color:var(--brand)}
-.rail li.skip{opacity:.4}.rail li.skip button{cursor:default;text-decoration:line-through}
+.rail li.skip{display:none}
 .live{background:#fff;border-radius:var(--r);box-shadow:var(--sh);padding:18px;text-align:center}
 .ring{position:relative;width:132px;height:132px;margin:4px auto 8px}
 .ring svg{width:100%;height:100%;transform:rotate(-90deg)}
@@ -77,3 +77,26 @@ details.more summary{cursor:pointer;font-weight:600;min-height:44px;display:flex
 @media(max-width:600px){.actionbar .btn{padding:8px 12px}.actionbar #saveBtn .t{display:none}.sh .num{width:38px;height:38px}}
 #saveBtn .s{display:none}
 @media(max-width:600px){#saveBtn .s{display:inline}#stepNo{display:none}.actionbar .in{gap:8px}}
+/* รายการแบบการ์ด (ห้องเรียน อาคาร คอมพิวเตอร์ ฯลฯ) */
+.rows{display:flex;flex-direction:column;gap:12px;margin:14px 0}
+.rowcard{border:1.5px solid var(--line);border-radius:14px;padding:10px 16px 2px;background:#fbfcff;transition:border-color .2s,box-shadow .2s}
+.rowcard:focus-within{border-color:var(--brand-100);box-shadow:0 0 0 4px rgba(31,60,136,.06)}
+.rc-h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.rc-n{font-weight:700;color:var(--brand);display:flex;align-items:center;gap:8px}
+.rc-n::before{content:"";width:8px;height:8px;border-radius:50%;background:var(--gold)}
+.rowcard .grid{grid-template-columns:repeat(auto-fill,minmax(190px,1fr));margin:8px 0 12px}
+.empty-row{padding:16px;border:1.5px dashed var(--line);border-radius:12px;color:var(--mute);text-align:center}
+#gtbl input[type=number]{min-width:90px}
+/* popup สถานะ */
+.mcard{max-width:520px;text-align:center}
+.mcard h2{margin:2px 0 6px}
+#mBody p{margin:6px 0}
+#mIcon .check,.mic{width:84px;height:84px;margin:0 auto 10px;display:block}
+.mic circle{stroke-width:3}.mic path{fill:none;stroke-width:6;stroke-linecap:round}
+.mic.err circle{fill:var(--bad-50);stroke:var(--bad)}.mic.err path{stroke:var(--bad)}
+.mic.warn circle{fill:var(--warn-50);stroke:#e9a23b}.mic.warn path{stroke:var(--warn)}
+.mic{animation:pop .45s var(--ease)}
+.mspin{width:58px;height:58px;border:5px solid var(--brand-100);border-top-color:var(--brand);border-radius:50%;animation:spin .8s linear infinite;margin:10px auto 16px}
+.mact{display:flex;gap:10px;justify-content:center;margin-top:18px;flex-wrap:wrap}
+.mlist{text-align:left;max-height:48vh;overflow:auto;background:var(--warn-50);border-radius:12px;padding:10px 14px;margin-top:8px}
+.mlist ul{margin:4px 0 10px;padding-left:20px}

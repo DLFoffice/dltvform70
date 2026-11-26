@@ -31,7 +31,11 @@ const DYN={
  buildings:[['rooms','ห้องที่ใช้ DLTV','n'],['dishes','จาน (ชุด)','n'],['band','ชนิด',[['C','C-Band'],['KU','KU-Band']]],['size','ขนาดจาน'],['dish','สภาพจาน',DISH],['lnb','LNB/มัลติสวิตช์',IRDS],['year','ปีที่ติดตั้ง (พ.ศ.)','n']],
  pcs:[['type','ประเภท',[['nb','โน้ตบุ๊ก'],['pc','เดสก์ท็อป'],['tab','แท็บเล็ต']]],['owner','เจ้าของ',[['school','โรงเรียน'],['teacher','ครู']]],['year','ปีที่ได้มา (พ.ศ.)','n'],['cond','สภาพ',PCC],['use','ใช้ทำอะไรกับ DLTV']],
  history:[['year','ปี (พ.ศ.)','n'],['org','หน่วยงานที่ให้'],['item','อุปกรณ์'],['qty','จำนวน','n']]};
-function dynTable(name){const cols=DYN[name],rows=S[name];return`<div class="scroll"><table class="tbl stack"><thead><tr><th>#</th>${cols.map(c=>`<th>${c[1]}</th>`).join('')}<th></th></tr></thead><tbody>${rows.map((r,i)=>`<tr class="rise"><td>${i+1}</td>${cols.map(c=>`<td>${c[2]==='n'?`<input type="number" min="0" data-k="${name}.${i}.${c[0]}" aria-label="${c[1]} แถว ${i+1}">`:Array.isArray(c[2])?sel(`${name}.${i}.${c[0]}`,c[2]):`<input type="text" data-k="${name}.${i}.${c[0]}" aria-label="${c[1]} แถว ${i+1}">`}</td>`).join('')}<td><button type="button" class="btn sm ghost" data-del="${name}" data-i="${i}" aria-label="ลบแถว ${i+1}">ลบ</button></td></tr>`).join('')}</tbody></table></div><button type="button" class="btn sm" data-add="${name}" style="margin-top:10px">+ เพิ่มแถว</button>`}
+const DYNL={circuits:'วงจรที่',rooms:'ห้องที่',buildings:'อาคารที่',pcs:'เครื่องที่',history:'รายการที่'};
+const DYNE={circuits:'ยังไม่มีวงจร',pcs:'ยังไม่มีเครื่อง ถ้าไม่มีให้เว้นไว้',history:'ยังไม่มีรายการ'};
+function field(name,i,c){const k=`${name}.${i}.${c[0]}`;return c[2]==='n'?`<input type="number" min="0" inputmode="decimal" data-k="${k}">`:Array.isArray(c[2])?`<select data-k="${k}">${opt(c[2])}</select>`:`<input type="text" data-k="${k}">`}
+function dynTable(name){const cols=DYN[name],rows=S[name],L=DYNL[name];
+ return`<div class="rows">${rows.length?rows.map((r,i)=>`<div class="rowcard rise"><div class="rc-h"><span class="rc-n">${L} ${i+1}</span><button type="button" class="btn sm ghost" data-del="${name}" data-i="${i}" aria-label="ลบ${L} ${i+1}">ลบ</button></div><div class="grid">${cols.map(c=>`<label class="f"><span>${c[1]}</span>${field(name,i,c)}</label>`).join('')}</div></div>`).join(''):`<div class="empty-row">${DYNE[name]||''}</div>`}</div><button type="button" class="btn" data-add="${name}">+ เพิ่ม${L.replace('ที่','')}</button>`}
 function renderDyn(name){const el=document.getElementById('d-'+name);if(!el)return;if(!Array.isArray(S[name]))S[name]=[];el.innerHTML=dynTable(name);fill(el)}
 const head=(id)=>{const i=STEPS.findIndex(s=>s[0]===id),s=STEPS[i];return`<header class="sh"><span class="num">${i+1}</span><div><h2>${s[1]}</h2><p class="muted">${s[2]}</p></div></header>`};
 
@@ -50,10 +54,11 @@ function sectionsHTML(){
  <section class="step card" data-step="s2">${head('s2')}
   ${rad('use','2.1 สถานะการใช้ DLTV ในปัจจุบัน',[['a','ก. ใช้ DLTV ในการเรียนการสอน'],['b','ข. เคยใช้ แต่หยุดใช้ทั้งหมดหรือบางชั้นเพราะอุปกรณ์ชำรุด'],['c','ค. ไม่ใช้ DLTV']],1)}
   <div class="panel warn hide" id="useB">กรอกส่วนที่ 4 ตามตารางสอนที่ใช้ก่อนอุปกรณ์ชำรุด และแนบลิงก์รูปอุปกรณ์ที่ชำรุดในขั้นที่ 8 มูลนิธิฯ จะตรวจสอบก่อนจัดสรร</div>
-  <div class="panel hide" id="useC">โรงเรียนที่ไม่ใช้ DLTV ไม่ต้องกรอกขั้นที่ 3–8 กด "ถัดไป" เพื่อไปรับรองข้อมูลและส่งแบบสำรวจได้เลย</div>
-  <div class="grid">${inp('years','2.2 ใช้ DLTV มาแล้ว (ปี)',{t:'number'})}</div>
+  <div class="panel hide" id="useC"><b>ไม่ต้องกรอกข้อมูลส่วนอื่น</b> รับรองข้อมูลด้านล่าง แล้วกด "ส่งแบบสำรวจ" ได้เลย</div>
+  <div id="s2more"><div class="grid">${inp('years','2.2 ใช้ DLTV มาแล้ว (ปี)',{t:'number'})}</div>
   ${rad('sched','2.3 รูปแบบการจัดตารางสอน',[['origin','ตามตารางออกอากาศของโรงเรียนต้นทาง'],['own','ปรับตามบริบทของโรงเรียน']],1)}
-  ${chk('channels','2.4 ช่องทางรับชม (เลือกได้หลายข้อ)',[['sat','จานดาวเทียม'],['live','อินเทอร์เน็ต รับชมสด'],['vod','อินเทอร์เน็ต รับชมย้อนหลัง'],['other','อื่น ๆ']])}
+  ${chk('channels','2.4 ช่องทางรับชม (เลือกได้หลายข้อ)',[['sat','จานดาวเทียม'],['live','อินเทอร์เน็ต รับชมสด'],['vod','อินเทอร์เน็ต รับชมย้อนหลัง'],['other','อื่น ๆ']])}</div>
+  <div id="certSlot2"></div>
  </section>
  <section class="step card" data-step="s3">${head('s3')}
   <h3 class="sub">3.1 การเดินทาง</h3><div class="grid">${inp('dist','ระยะทางจากอำเภอ (กม.)',{t:'number'})}${inp('hours','เวลาเดินทาง (ชั่วโมง)',{t:'number'})}${inp('closedMonths','เดือนที่เข้าถึงยาก (ถ้ามี)')}</div>
@@ -107,8 +112,9 @@ function sectionsHTML(){
  </section>
  <section class="step card" data-step="s9">${head('s9')}
   <div id="review"></div>
-  <label class="opt block" style="margin-top:12px"><input type="checkbox" data-k="cert.agree"><span>ขอรับรองว่าข้อมูลทั้งหมดตรงกับความเป็นจริง และยินยอมให้มูลนิธิฯ ตรวจสอบข้อมูลและสถานที่ได้ <b class="req">*</b></span></label>
-  <div class="grid">${inp('cert.filler','ผู้กรอกข้อมูล')}${inp('cert.fillerPos','ตำแหน่ง')}${inp('cert.director','ผู้อำนวยการสถานศึกษา (ชื่อ–นามสกุล)',{req:1})}${inp('cert.date','วันที่รับรอง',{t:'date'})}</div>
+  <div id="certSlot9"><div id="certBox"><h3 class="sub">การรับรองข้อมูล</h3>
+  <label class="opt block"><input type="checkbox" data-k="cert.agree"><span>ขอรับรองว่าข้อมูลทั้งหมดตรงกับความเป็นจริง และยินยอมให้มูลนิธิฯ ตรวจสอบข้อมูลและสถานที่ได้ <b class="req">*</b></span></label>
+  <div class="grid">${inp('cert.filler','ผู้กรอกข้อมูล')}${inp('cert.fillerPos','ตำแหน่ง')}${inp('cert.director','ผู้อำนวยการสถานศึกษา (ชื่อ–นามสกุล)',{req:1})}${inp('cert.date','วันที่รับรอง',{t:'date'})}</div></div></div>
  </section>`}
 
 /* ---------- render & bind ---------- */
@@ -120,7 +126,7 @@ function onEdit(e){const el=e.target,k=el.dataset&&el.dataset.k;if(!k)return;if(
  if(el.type==='radio')setP(S,k,el.value);else if(el.type==='checkbox'){if(el.hasAttribute('data-multi')){const a=new Set(getP(S,k)||[]);el.checked?a.add(el.value):a.delete(el.value);setP(S,k,[...a])}else setP(S,k,el.checked)}
  else if(el.type==='number')setP(S,k,el.value===''?'':Number(el.value));else setP(S,k,el.value);
  el.classList.remove('invalid');el.closest('.invalid')?.classList.remove('invalid');
- if(!dirty){dirty=true;status('มีการแก้ไขที่ยังไม่บันทึก','warn')}refresh();if(k==='use')renderRail()}
+ if(!dirty){dirty=true;status('มีการแก้ไขที่ยังไม่บันทึก','warn')}refresh();if(k==='use'){if(!visible().includes(cur))cur='s2';renderRail()}}
 $('#sv').addEventListener('input',onEdit);$('#sv').addEventListener('change',onEdit);
 $('#sv').addEventListener('click',e=>{const b=e.target.closest('[data-add],[data-del]');if(!b)return;const a=b.dataset.add,d=b.dataset.del;
  if(a){S[a].push({});renderDyn(a)}else{S[d].splice(+b.dataset.i,1);renderDyn(d)}dirty=true;status('มีการแก้ไขที่ยังไม่บันทึก','warn');refresh()});
@@ -132,7 +138,8 @@ function refresh(){
  G.forEach((g,i)=>{const r=S.grades[i]||{},c=document.getElementById('pc'+i);if(!c)return;const A=num(cfg.A[i]);c.textContent=r.open&&A?fmt(Math.min(num(r.B),A)/A*100,2):'–';c.closest('tr').classList.toggle('off',!r.open)});
  if($('#sumA')){$('#sumA').textContent=fmt(t.sA);$('#sumB').textContent=fmt(t.sB);$('#sumSt').textContent=fmt(t.sSt);$('#sumP').textContent=t.sA?fmt(t.p,2):'–'}
  const r=evalSchool(S,cfg);EQ.forEach(([k])=>{const el=$('#gap-'+k);if(el)el.textContent=fmt(r.gap[k])});
- $('#useB')?.classList.toggle('hide',S.use!=='b');$('#useC')?.classList.toggle('hide',S.use!=='c');
+ $('#useB')?.classList.toggle('hide',S.use!=='b');$('#useC')?.classList.toggle('hide',S.use!=='c');$('#s2more')?.classList.toggle('hide',S.use==='c');
+ const cb=$('#certBox'),slot=$(S.use==='c'?'#certSlot2':'#certSlot9');if(cb&&slot&&cb.parentNode!==slot)slot.append(cb);
  $('#netBox')?.classList.toggle('hide',S.net==='none');$('#histBox')?.classList.toggle('hide',!!S.neverReceived);
  // ring
  const pct=t.sA?t.p:0,C=2*Math.PI*52;$('#ringFg').style.strokeDashoffset=String(C*(1-pct/100));
@@ -158,7 +165,7 @@ function issues(){const m=[];const q=(c,sec,t,k)=>{if(!c)m.push({sec,t,k})};
   q(S.rooms.some(r=>r.tv),'s5','ข้อมูลห้องเรียนอย่างน้อย 1 ห้อง พร้อมสภาพทีวี','rooms.0.tv');
   q(S.buildings.some(b=>b.dish),'s6','สภาพจานดาวเทียมอย่างน้อย 1 อาคาร','buildings.0.dish');
   if(S.use==='b')q(S.evidence,'s8','ลิงก์รูปอุปกรณ์ที่ชำรุด (กรณีข้อ 2.1 ข.)','evidence')}
- q(S.cert?.agree,'s9','ติ๊กรับรองข้อมูล','cert.agree');q(S.cert?.director,'s9','ชื่อผู้อำนวยการผู้รับรอง','cert.director');return m}
+ const cs=S.use==='c'?'s2':'s9';q(S.cert?.agree,cs,'ติ๊กรับรองข้อมูล','cert.agree');q(S.cert?.director,cs,'ชื่อผู้อำนวยการผู้รับรอง','cert.director');return m}
 function markInvalid(list){$$('.invalid').forEach(e=>e.classList.remove('invalid'));list.filter(x=>tried[x.sec]).forEach(x=>{const el=document.querySelector(`[data-k="${x.k}"]`);if(!el)return;if(el.type==='radio'){el.closest('fieldset')?.classList.add('invalid')}else el.classList.add('invalid')})}
 function renderReview(){const m=issues(),box=$('#review'),vs=visible();const by={};m.forEach(x=>(by[x.sec]=by[x.sec]||[]).push(x));
  const t=totals(),r=evalSchool(S,cfg);
@@ -167,7 +174,7 @@ function renderReview(){const m=issues(),box=$('#review'),vs=visible();const by=
 $('#sv').addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g)go(g.dataset.go)});
 
 /* ---------- steps ---------- */
-const visible=()=>S.use==='c'?['s1','s2','s9']:STEPS.map(s=>s[0]);
+const visible=()=>S.use==='c'?['s1','s2']:STEPS.map(s=>s[0]);
 function renderRail(){const vs=visible();
  $('#rail').innerHTML=STEPS.map(([id,t],i)=>`<li class="${vs.includes(id)?'':'skip'}"><button type="button" data-step="${id}" ${vs.includes(id)?'':'disabled'}><span class="dot">${i+1}</span><span class="lbl">${t}</span></button></li>`).join('');renderRailMarks()}
 function renderRailMarks(){const m=issues(),cnt={};m.forEach(x=>cnt[x.sec]=(cnt[x.sec]||0)+1);
@@ -175,7 +182,7 @@ function renderRailMarks(){const m=issues(),cnt={};m.forEach(x=>cnt[x.sec]=(cnt[
  const vs=visible(),i=vs.indexOf(cur);$('#prog i').style.width=((i+1)/vs.length*100)+'%';$('#stepNo').textContent=`ขั้นที่ ${i+1} จาก ${vs.length}`;
  $('#prev').disabled=i<=0;$('#next').classList.toggle('hide',i===vs.length-1);$('#submit').classList.toggle('hide',i!==vs.length-1);markInvalid(m)}
 $('#rail').addEventListener('click',e=>{const b=e.target.closest('button[data-step]');if(b&&!b.disabled)go(b.dataset.step)});
-function go(id){const vs=visible();if(!vs.includes(id))id='s9';if(id===cur)return;const dir=vs.indexOf(id)>vs.indexOf(cur)?'inR':'inL';tried[cur]=true;
+function go(id){const vs=visible();if(!vs.includes(id))id=vs[vs.length-1];if(id===cur)return;const dir=vs.indexOf(id)>vs.indexOf(cur)?'inR':'inL';tried[cur]=true;
  const was=cur;cur=id;$$('.step').forEach(s=>{const on=s.dataset.step===id;s.classList.toggle('on',on);if(on){s.style.animation='none';void s.offsetWidth;s.style.animation=`${dir} .38s var(--ease) both`}});
  refresh();const top=$('#stage').getBoundingClientRect().top+scrollY-80;if(scrollY>top)scrollTo({top,behavior:'smooth'});
  if(dirty&&/^\d{10}$/.test(String(S.code||''))&&was!==id)save('',true)}
@@ -183,35 +190,51 @@ $('#prev').onclick=()=>{const vs=visible();go(vs[Math.max(0,vs.indexOf(cur)-1)])
 $('#next').onclick=()=>{const vs=visible();go(vs[Math.min(vs.length-1,vs.indexOf(cur)+1)])};
 document.addEventListener('keydown',e=>{if(e.altKey&&e.key==='ArrowRight')$('#next').click();if(e.altKey&&e.key==='ArrowLeft')$('#prev').click()});
 
+/* ---------- popup แจ้งสถานะ ---------- */
+const ICON={loading:'<div class="mspin"></div>',ok:'<svg class="check anim" viewBox="0 0 84 84"><circle cx="42" cy="42" r="39"/><path d="M26 43 l11 11 l21 -23"/></svg>',
+ err:'<svg class="mic err" viewBox="0 0 84 84"><circle cx="42" cy="42" r="39"/><path d="M30 30 L54 54 M54 30 L30 54"/></svg>',warn:'<svg class="mic warn" viewBox="0 0 84 84"><circle cx="42" cy="42" r="39"/><path d="M42 24 V48 M42 58 V60"/></svg>'};
+let mTimer=null;
+function modal({type='ok',title='',body='',actions,auto}={}){clearTimeout(mTimer);const m=$('#modal');
+ $('#mIcon').innerHTML=ICON[type]||'';$('#mTitle').textContent=title;$('#mBody').innerHTML=body;m.dataset.type=type;
+ const acts=actions||(type==='loading'?[]:[{label:'ตกลง',cls:'pri'}]);
+ $('#mAct').innerHTML=acts.map((a,i)=>`<button type="button" class="btn ${a.cls||''}" data-i="${i}">${esc(a.label)}</button>`).join('');
+ $$('#mAct button').forEach(b=>b.onclick=()=>{const a=acts[+b.dataset.i];closeModal();a.fn&&a.fn()});
+ m.classList.remove('hide');const card=m.querySelector('.card');card.style.animation='none';void card.offsetWidth;card.style.animation='';
+ setTimeout(()=>$('#mAct button')?.focus(),50);if(auto)mTimer=setTimeout(closeModal,auto)}
+function closeModal(){clearTimeout(mTimer);$('#modal').classList.add('hide')}
+$('#modal').addEventListener('click',e=>{if(e.target.id==='modal'&&$('#modal').dataset.type!=='loading')closeModal()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('#modal').classList.contains('hide')&&$('#modal').dataset.type!=='loading')closeModal()});
+
 /* ---------- save / submit / load ---------- */
 function status(t,kind=''){const el=$('#saveSt');el.textContent=t;el.className='st '+kind}
 async function save(st,silent){if(saving)return false;
- if(!/^\d{10}$/.test(String(S.code||''))){if(!silent){toast('กรอกรหัสโรงเรียน 10 หลักก่อนบันทึก','bad');go('s1');tried.s1=true;refresh()}return false}
- saving=true;const btn=$('#saveBtn');if(!silent)btnBusy(btn,true,'กำลังบันทึก');status('กำลังบันทึก…');
+ if(!/^\d{10}$/.test(String(S.code||''))){if(!silent){tried.s1=true;go('s1');refresh();modal({type:'warn',title:'ยังบันทึกไม่ได้',body:'<p>กรุณากรอก <b>รหัสโรงเรียน 10 หลัก</b> ในขั้นที่ 1 ก่อน ระบบใช้รหัสนี้เป็นตัวระบุแบบสำรวจของโรงเรียน</p>'})}return false}
+ saving=true;status('กำลังบันทึก…');if(!silent)modal({type:'loading',title:st==='submitted'?'กำลังส่งแบบสำรวจ…':'กำลังบันทึกร่าง…',body:'<p class="muted">กรุณารอสักครู่ อย่าปิดหน้านี้</p>'});
  try{const payload=JSON.parse(JSON.stringify(S));payload._verify=verifyTel;const r=await api('saveSurvey',payload,st||'');
   S.status=r.status;S.updatedAt=r.updatedAt;verifyTel=S.coord?.[0]?.tel||verifyTel;dirty=false;
-  status('บันทึกแล้ว '+new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'}),'ok');if(!silent&&!st)toast('บันทึกร่างแล้ว','ok');refresh();return true}
- catch(e){status('บันทึกไม่สำเร็จ','bad');toast(e.message||String(e),'bad');return false}
- finally{saving=false;if(!silent)btnBusy(btn,false)}}
+  const tm=new Date().toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'});status('บันทึกแล้ว '+tm,'ok');refresh();
+  if(!silent&&st!=='submitted')modal({type:'ok',title:'บันทึกร่างเรียบร้อย',body:`<p>บันทึกเมื่อ ${tm} น. กลับมากรอกต่อได้ด้วยรหัสโรงเรียนและเบอร์มือถือผู้ประสานงาน</p>`,auto:2200});
+  else if(silent&&st!=='submitted')toast('บันทึกร่างอัตโนมัติแล้ว','ok');
+  return true}
+ catch(e){status('บันทึกไม่สำเร็จ','bad');modal({type:'err',title:silent&&st!=='submitted'?'บันทึกอัตโนมัติไม่สำเร็จ':'บันทึกไม่สำเร็จ',body:`<p>${esc(e.message||e)}</p><p class="muted small">ข้อมูลที่กรอกยังอยู่ในหน้านี้ ลองกด "บันทึกร่าง" อีกครั้ง</p>`,actions:[{label:'ลองใหม่',cls:'pri',fn:()=>save(st)},{label:'ปิด'}]});return false}
+ finally{saving=false}}
 $('#saveBtn').onclick=()=>save();
 $('#submit').onclick=async()=>{visible().forEach(s=>tried[s]=true);const m=issues();
- if(m.length){refresh();const first=visible().find(s=>m.some(x=>x.sec===s));toast(`ยังขาดข้อมูล ${m.length} รายการ`,'bad');if(first&&first!==cur)go(first);return}
- const b=$('#submit');btnBusy(b,true,'กำลังส่ง');const ok=await save('submitted',true);btnBusy(b,false);
- if(ok)showDone()};
+ if(m.length){refresh();const by={};m.forEach(x=>(by[x.sec]=by[x.sec]||[]).push(x));const vs=visible().filter(s=>by[s]);
+  modal({type:'warn',title:`ยังขาดข้อมูล ${m.length} รายการ`,body:`<div class="mlist">${vs.map(s=>{const st=STEPS.find(x=>x[0]===s);return`<div><b>ขั้นที่ ${STEPS.indexOf(st)+1} ${st[1]}</b><ul>${by[s].map(x=>`<li>${esc(x.t)}</li>`).join('')}</ul></div>`}).join('')}</div>`,
+   actions:[{label:`ไปแก้ขั้นที่ ${STEPS.findIndex(x=>x[0]===vs[0])+1}`,cls:'pri',fn:()=>go(vs[0])},{label:'ปิด'}]});return}
+ if(await save('submitted'))showDone()};
 function showDone(){const t=totals(),r=evalSchool(S,cfg);
- $('#doneBody').innerHTML=`<p>ระบบได้รับแบบสำรวจของ <b>${esc(S.name||'')}</b> แล้ว</p>
- <div class="sum"><div><span class="muted small">% การใช้ DLTV</span><b>${S.use==='c'?'–':fmt(t.p,2)+'%'}</b></div><div><span class="muted small">กลุ่ม</span><b>${r.group||'–'}</b></div><div><span class="muted small">ส่งเมื่อ</span><b>${new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}</b></div></div>
- <div class="panel small">แก้ไขข้อมูลได้จนถึงวันปิดรับ โดยใช้ <b>รหัสโรงเรียน ${esc(S.code)}</b> และ <b>เบอร์มือถือผู้ประสานงานคนที่ 1</b> ที่ช่อง "แก้ไขข้อมูลที่เคยกรอก" ด้านบน</div>`;
- $('#done').classList.remove('hide');$('#done .check').classList.remove('anim');void $('#done').offsetWidth;$('#done .check').classList.add('anim');$('#closeDone').focus()}
-$('#closeDone').onclick=()=>$('#done').classList.add('hide');
-$('#done').addEventListener('click',e=>{if(e.target.id==='done')$('#done').classList.add('hide')});
-$('#lBtn').onclick=async()=>{const c=$('#lCode').value.trim(),t=$('#lTel').value.trim(),m=$('#lMsg');
- if(!/^\d{10}$/.test(c)||t.replace(/\D/g,'').length<9){m.textContent='กรอกรหัสโรงเรียน 10 หลัก และเบอร์มือถือ';m.className='small bad';return}
- btnBusy($('#lBtn'),true,'กำลังค้นหา');m.textContent='';
- try{const d=await api('getSurvey',c,t);if(!d){m.textContent='ไม่พบข้อมูล หรือเบอร์มือถือไม่ตรงกับที่บันทึกไว้';m.className='small bad';return}
-  S=Object.assign(blank(),d);verifyTel=t;dirty=false;tried={};cur='s1';renderForm();m.textContent='';status('โหลดข้อมูลเดิมแล้ว','ok');
-  toast('โหลดข้อมูลเดิมแล้ว ('+(S.status==='submitted'?'ส่งแล้ว':'ฉบับร่าง')+')','ok');$('#edit').open=false;$('#stage').scrollIntoView({behavior:'smooth'})}
- catch(e){m.textContent=e.message||String(e);m.className='small bad'}finally{btnBusy($('#lBtn'),false)}};
+ modal({type:'ok',title:'ส่งแบบสำรวจเรียบร้อย',body:`<p>ระบบได้รับแบบสำรวจของ <b>${esc(S.name||'')}</b> แล้ว</p>
+ <div class="sum"><div><span class="muted small">% การใช้ DLTV</span><b>${S.use==='c'?'–':fmt(t.p,2)+'%'}</b></div><div><span class="muted small">กลุ่ม</span><b>${S.use==='c'?'–':r.group||'–'}</b></div><div><span class="muted small">ส่งเมื่อ</span><b>${new Date().toLocaleString('th-TH',{dateStyle:'medium',timeStyle:'short'})}</b></div></div>
+ <div class="panel small" style="text-align:left">แก้ไขได้จนถึงวันปิดรับ โดยใช้ <b>รหัสโรงเรียน ${esc(S.code)}</b> และ <b>เบอร์มือถือผู้ประสานงานคนที่ 1</b> ที่ "แก้ไขข้อมูลที่เคยกรอกไว้" ด้านบนของหน้า</div>`,actions:[{label:'เสร็จสิ้น',cls:'pri'}]})}
+$('#lBtn').onclick=async()=>{const c=$('#lCode').value.trim(),t=$('#lTel').value.trim();
+ if(!/^\d{10}$/.test(c)||t.replace(/\D/g,'').length<9){modal({type:'warn',title:'ข้อมูลไม่ครบ',body:'<p>กรอกรหัสโรงเรียน 10 หลัก และเบอร์มือถือผู้ประสานงานคนที่ 1</p>'});return}
+ modal({type:'loading',title:'กำลังค้นหาข้อมูลเดิม…'});
+ try{const d=await api('getSurvey',c,t);if(!d){modal({type:'err',title:'ไม่พบข้อมูล',body:'<p>ไม่พบแบบสำรวจของรหัสนี้ หรือเบอร์มือถือไม่ตรงกับที่บันทึกไว้</p>'});return}
+  S=Object.assign(blank(),d);verifyTel=t;dirty=false;tried={};cur='s1';renderForm();status('โหลดข้อมูลเดิมแล้ว','ok');$('#edit').open=false;
+  modal({type:'ok',title:'โหลดข้อมูลเดิมแล้ว',body:`<p><b>${esc(S.name||'')}</b><br>สถานะ: ${S.status==='submitted'?'ส่งแล้ว':'ฉบับร่าง'} · แก้ไขแล้วกดบันทึกหรือส่งใหม่ได้</p>`,auto:2600});$('#stage').scrollIntoView({behavior:'smooth'})}
+ catch(e){modal({type:'err',title:'ค้นหาไม่สำเร็จ',body:`<p>${esc(e.message||e)}</p>`})}};
 window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.returnValue=''}});
 
 /* ---------- boot ---------- */

@@ -58,19 +58,4 @@ tr.pick{cursor:pointer}
 .busy .box{background:#fff;border-radius:14px;box-shadow:var(--sh);padding:18px 24px;display:flex;gap:12px;align-items:center;font-weight:600}
 .busy .spin{width:22px;height:22px;border:3px solid var(--brand);border-right-color:transparent;border-radius:50%;animation:spin .7s linear infinite}
 @media(max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}.filters{position:static}}
-/* รายงาน PDF (A4 แนวตั้ง กว้าง 190 มม.) */
-#report{position:fixed;left:-10000px;top:0}
-.rpt{width:760px;background:#fff;color:#111;font-size:12px;line-height:1.5;padding:4px 8px}
-.rpt .rh{display:flex;align-items:center;gap:12px;border-bottom:3px solid var(--brand);padding-bottom:10px;margin-bottom:12px}
-.rpt .rh img{height:46px}
-.rpt h1{font-size:19px}.rpt h2{font-size:14px;margin:14px 0 6px;color:var(--brand)}
-.rpt table{font-size:11px}.rpt th{position:static;background:#eef3fc;color:#111;font-size:11px}.rpt td,.rpt th{padding:4px 6px}
-.rpt tr{page-break-inside:avoid;break-inside:avoid}
-.rpt .rk{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.rpt .rk div{border:1px solid var(--line);border-radius:8px;padding:8px 10px}
-.rpt .rk b{display:block;font-size:18px}
-.rpt .hb{font-size:11px;margin:4px 0;grid-template-columns:120px 1fr 50px}.rpt .hb .t{height:14px}.rpt .hb .t i{transition:none}
-.rpt .sign{display:flex;justify-content:flex-end;margin-top:40px}
-.rpt .sign div{text-align:center;width:260px}
-.rpt section{page-break-inside:avoid;break-inside:avoid}
-@media print{body>*:not(#report){display:none!important}#report{position:static;width:auto}}
+@media print{.topbar,.filters,.head .acts,.pager{display:none!important}.card,.kpi{box-shadow:none;border:1px solid #ddd}}

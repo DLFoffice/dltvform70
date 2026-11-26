@@ -1,7 +1,7 @@
 /* ตั้งค่าหน้าเว็บ — แก้ไฟล์นี้ไฟล์เดียวหลัง deploy Google Apps Script */
 window.DLTV_CONFIG = {
   /* URL ของ Web App ที่ได้จาก Google Apps Script (ลงท้ายด้วย /exec) */
-  API_URL: 'https://script.google.com/macros/s/AKfycbxfCETJzdFIY3sKCjCtzLlc80CoqoilXWIdnDhyi8NhpS35cyPcUIrdOA2ZRPpX4CjUUA/exec',
+  API_URL: 'https://script.google.com/macros/s/XXXX/exec',
 
   /* โลโก้: ระบบลองไฟล์ในโฟลเดอร์ assets ก่อน ถ้าไม่มีจะใช้ URL จากเว็บไซต์ DLTV
      แนะนำให้ดาวน์โหลดโลโก้มาเก็บไว้ใน docs/assets/ ตามชื่อด้านล่าง เพื่อให้โลโก้ขึ้นในไฟล์ PDF ด้วย */
