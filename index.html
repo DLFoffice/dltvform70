@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>แบบสำรวจ DLTV 2570</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+Thai:wght@600;700&family=Sarabun:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="band">
+  <span class="tab">DLTV ปีการศึกษา 2570</span>
+  <h1>แบบสำรวจข้อมูลโรงเรียนที่ใช้ DLTV เพื่อการจัดสรรอุปกรณ์</h1>
+  <p class="lede">กรอกข้อมูลตามสภาพจริง ณ วันที่กรอก ข้อที่มีเครื่องหมาย <b class="req">*</b> ต้องตอบ กด "บันทึกร่าง" ได้ระหว่างกรอก และกด "ส่งแบบสำรวจ" เมื่อกรอกครบ</p>
+</header>
+<main>
+<div id="v-form" class="band view">
+  <div id="dbmsg" class="panel hide"></div>
+  <div class="panel"><b>เคยกรอกไว้แล้ว?</b> ใส่รหัสโรงเรียนและเบอร์มือถือผู้ประสานงานคนที่ 1 เพื่อเรียกข้อมูลเดิมมาแก้ไข
+    <div class="filters"><label>รหัสโรงเรียน<input id="lCode" type="text" inputmode="numeric"></label><label>มือถือผู้ประสานงาน<input id="lTel" type="tel"></label><button id="lBtn" type="button">โหลดข้อมูลเดิม</button></div><span id="lMsg" class="muted"></span></div>
+  <div class="wrap">
+    <aside class="toc" id="toc"></aside>
+    <form id="sv" novalidate></form>
+  </div>
+</div>
+</main>
+<script src="config.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
